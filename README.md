@@ -24,7 +24,7 @@ A homepage is available at the root URL (`/`) of your deployed worker, which hel
 2. **Install Dependencies**: Run `bun install` to install the necessary dependencies.
 3. **Configure Environment Variables**: Set up the required environment variables in your Cloudflare Worker dashboard or in a `.env` file for local development.
    - `STRIPE_API_KEY`: Your Stripe API key. <a href="https://dashboard.stripe.com/apikeys/create?permissions=read:charges,read:customers,read:account,write:webhook_endpoints" target="_blank">Create Stripe API key with correct permissions</a>
-   - `SMTP_HOST`, `SMTP_PORT`, `SMTP_USERNAME`, `SMTP_PASSWORD`, `SMTP_FROM`: SMTP settings for sending emails.
+   - `SMTP_HOST`, `SMTP_PORT`, `SMTP_USERNAME`, `SMTP_PASSWORD`, `SMTP_FROM`, `SMTP_SECURE`: SMTP settings for sending emails.
    - `CF_WORKER_DOMAIN`: Your Cloudflare Worker domain.
    - `DEV_MODE`: Set to 'true' for development mode to send emails to a company email address.
 4. **Deploy to Cloudflare**: Use `wrangler deploy` to deploy the worker to Cloudflare.

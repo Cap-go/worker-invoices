@@ -10,6 +10,7 @@ const app = new Hono<{
     SMTP_USERNAME: string; 
     SMTP_PASSWORD: string; 
     SMTP_FROM: string; 
+    SMTP_SECURE: string;
     INVOICE_DB: KVNamespace; 
     CF_WORKER_DOMAIN: string; 
     DEV_MODE: string 
@@ -60,6 +61,7 @@ app.get('/', async (c) => {
     const missingVars = [];
     if (!c.env.STRIPE_API_KEY) missingVars.push('STRIPE_API_KEY');
     if (!c.env.SMTP_HOST) missingVars.push('SMTP_HOST');
+    if (!c.env.SMTP_SECURE) missingVars.push('SMTP_SECURE');
     if (!c.env.SMTP_PORT) missingVars.push('SMTP_PORT');
     if (!c.env.SMTP_USERNAME) missingVars.push('SMTP_USERNAME');
     if (!c.env.SMTP_PASSWORD) missingVars.push('SMTP_PASSWORD');
@@ -566,7 +568,7 @@ async function sendInvoice(c: any, customerId: string, additionalInfo: string, c
   const transporter = nodemailer.createTransport({
     host: c.env.SMTP_HOST,
     port: parseInt(c.env.SMTP_PORT, 10),
-    secure: c.env.SMTP_PORT === '465', // Use SSL if port is 465
+    secure: c.env.SMTP_SECURE === 'true', // Use SSL if port is 465
     auth: {
       user: c.env.SMTP_USERNAME,
       pass: c.env.SMTP_PASSWORD,
