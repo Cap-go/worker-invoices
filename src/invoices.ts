@@ -260,6 +260,7 @@ export async function sendInvoice(c: any, customerId: string, chargeId: string) 
     },
   });
 
+  console.log('Sending email to', recipientEmail);
   await transporter.sendMail({
     from: c.env.SMTP_FROM,
     to: recipientEmail,

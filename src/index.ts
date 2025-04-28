@@ -2,7 +2,7 @@ import { Hono } from 'hono';
 import { logger } from 'hono/logger'
 import { sendInvoice } from './invoices';
 import { home } from './home';
-import { billing } from './billing';
+import { billing, requestBillingLink } from './billing';
 import { webhookInit } from './webhook';
 
 const app = new Hono<{ 
@@ -45,6 +45,9 @@ app.get('/', home);
 
 // Homepage to list past charges for a customer
 app.get('/billing/:customerId', billing);
+
+// Endpoint to request a billing link via email
+app.get('/api/request-billing-link', requestBillingLink);
 
 // Webhook endpoint for Stripe to auto-send invoices after a successful charge
 app.post('/webhook/stripe', async (c) => {
