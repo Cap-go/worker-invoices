@@ -8,6 +8,8 @@ This Cloudflare Worker automates the process of sending invoices to customers af
 
 This project uses Cloudflare Workers to listen for Stripe webhooks, specifically for `charge.succeeded` events, and automatically sends an invoice email to the customer with a PDF attachment. It also provides a billing history page for customers to view past charges and resend invoices.
 
+A homepage is available at the root URL (`/`) of your deployed worker, which helps you check the configuration status, including environment variables, webhook setup, and legally required company information in stripe are properly setup.
+
 ## Features
 
 - Automatically sends invoices via email upon successful Stripe charges.
