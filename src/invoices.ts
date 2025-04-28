@@ -4,6 +4,7 @@ import jsPDF from 'jspdf';
 // Helper function to send invoice
 export async function sendInvoice(c: any, customerId: string, chargeId: string) {
   // Fetch customer data from Stripe
+  console.log('Fetching customer data from Stripe');
   const stripeResponse = await fetch(`https://api.stripe.com/v1/customers/${customerId}`, {
     headers: {
       'Authorization': `Bearer ${c.env.STRIPE_API_KEY}`,
@@ -12,6 +13,7 @@ export async function sendInvoice(c: any, customerId: string, chargeId: string) 
   });
 
   if (!stripeResponse.ok) {
+    console.log('Failed to fetch customer data from Stripe');
     return c.json({ error: 'Failed to fetch customer data from Stripe' }, stripeResponse.status as any);
   }
 
@@ -20,6 +22,7 @@ export async function sendInvoice(c: any, customerId: string, chargeId: string) 
   const name = customerData.name || 'Customer';
 
   // Fetch specific charge for the customer
+  console.log('Fetching charge data from Stripe');
   const chargesResponse = await fetch(`https://api.stripe.com/v1/charges/${chargeId}`, {
     headers: {
       'Authorization': `Bearer ${c.env.STRIPE_API_KEY}`,
@@ -27,11 +30,17 @@ export async function sendInvoice(c: any, customerId: string, chargeId: string) 
     },
   });
 
+  if (!chargesResponse.ok) {
+    console.log('Failed to fetch charge data from Stripe');
+    return c.json({ error: 'Failed to fetch charge data from Stripe' }, chargesResponse.status as any);
+  }
+
   const chargeData = await chargesResponse.json() as any;
   const chargeAmount = chargeData.amount ? chargeData.amount / 100 : 'N/A';
   const chargeDate = chargeData.created ? new Date(chargeData.created * 1000).toLocaleDateString() : 'N/A';
 
   // Fetch Stripe account data for branding (logo and color) and company info
+  console.log('Fetching Stripe account data');
   const accountResponse = await fetch('https://api.stripe.com/v1/account', {
     headers: {
       'Authorization': `Bearer ${c.env.STRIPE_API_KEY}`,
@@ -45,6 +54,7 @@ export async function sendInvoice(c: any, customerId: string, chargeId: string) 
   }
 
   const accountData = await accountResponse.json() as any;
+  console.log('Stripe account data fetched successfully');
   const logoUrl = accountData.settings.branding.logo || '';
   const brandColor = accountData.settings.branding.primary_color || '#5562eb';
   const secondaryColor = accountData.settings.branding.secondary_color || '#f6f9fc';
@@ -111,6 +121,7 @@ export async function sendInvoice(c: any, customerId: string, chargeId: string) 
         pass: c.env.SMTP_PASSWORD,
       },
     });
+    console.log('Sending notification email to company email');
     await transporter.sendMail({
       from: c.env.SMTP_FROM,
       to: companyEmail,
@@ -140,6 +151,7 @@ export async function sendInvoice(c: any, customerId: string, chargeId: string) 
     </html>
   `;
 
+  console.log('Generating PDF using jsPDF');
   // Generate PDF using jsPDF with Stripe-like styling
   const doc = new jsPDF({
     orientation: 'p',
@@ -237,6 +249,7 @@ export async function sendInvoice(c: any, customerId: string, chargeId: string) 
   console.log('PDF generated successfully with jsPDF');
 
   // Send email using nodemailer
+  console.log('Sending email using nodemailer');
   const transporter = nodemailer.createTransport({
     host: c.env.SMTP_HOST,
     port: parseInt(c.env.SMTP_PORT, 10),
