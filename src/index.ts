@@ -1,7 +1,6 @@
 import { Hono } from 'hono';
 import nodemailer from 'nodemailer';
-// Using a minified or Worker-compatible version of jsPDF if available
-const jsPDF = require('jspdf/dist/jspdf.node.min');
+import jsPDF from 'jspdf';
 
 const app = new Hono<{ Bindings: { STRIPE_API_KEY: string; SMTP_HOST: string; SMTP_PORT: string; SMTP_USERNAME: string; SMTP_PASSWORD: string; SMTP_FROM: string; INVOICE_DB: KVNamespace; CF_WORKER_DOMAIN: string; DEV_MODE: string } }>();
 
