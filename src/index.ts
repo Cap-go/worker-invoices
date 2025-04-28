@@ -90,7 +90,7 @@ app.get('/', async (c) => {
     }
 
     // Fetch company info for legal requirements
-    let companyInfo = { name: 'Not Available', address: 'Not Available', email: 'Not Available', vat: 'Not Available' };
+    let companyInfo = { name: 'Not Set', address: 'Not Set', email: 'Not Set', vat: 'Not Set', brandColor: 'Not Set', logo: 'Not Set' };
     try {
       const accountResponse = await fetch('https://api.stripe.com/v1/account', {
         headers: {
@@ -101,10 +101,12 @@ app.get('/', async (c) => {
 
       if (accountResponse.ok) {
         const accountData = await accountResponse.json() as any;
-        companyInfo.name = accountData.business_profile?.name || 'Not Set';
-        companyInfo.address = accountData.settings.dashboard?.display_name ? `${accountData.settings.dashboard.display_name}, ${accountData.country || ''}` : 'Not Set';
-        companyInfo.email = accountData.business_profile?.support_email || 'Not Set';
-        companyInfo.vat = accountData.business_profile?.tax_id || 'Not Set';
+        companyInfo.name = accountData.business_profile?.name ? 'Set' : 'Not Set';
+        companyInfo.address = accountData.settings.dashboard?.display_name && accountData.country ? 'Set' : 'Not Set';
+        companyInfo.email = accountData.business_profile?.support_email ? 'Set' : 'Not Set';
+        companyInfo.vat = accountData.business_profile?.tax_id ? 'Set' : 'Not Set';
+        companyInfo.brandColor = accountData.settings.branding?.primary_color ? 'Set' : 'Not Set';
+        companyInfo.logo = accountData.settings.branding?.logo ? 'Set' : 'Not Set';
       }
     } catch (error) {
       console.error('Error fetching company info:', error);
@@ -137,6 +139,8 @@ app.get('/', async (c) => {
             <li>Company Address: <span class="${companyInfo.address === 'Not Set' ? 'text-red-600' : 'text-green-600'}">${companyInfo.address}</span></li>
             <li>Company Email: <span class="${companyInfo.email === 'Not Set' ? 'text-red-600' : 'text-green-600'}">${companyInfo.email}</span></li>
             <li>VAT ID: <span class="${companyInfo.vat === 'Not Set' ? 'text-red-600' : 'text-green-600'}">${companyInfo.vat}</span></li>
+            <li>Brand Color: <span class="${companyInfo.brandColor === 'Not Set' ? 'text-red-600' : 'text-green-600'}">${companyInfo.brandColor}</span></li>
+            <li>Logo: <span class="${companyInfo.logo === 'Not Set' ? 'text-red-600' : 'text-green-600'}">${companyInfo.logo}</span></li>
           </ul>
         </div>
       </div>
