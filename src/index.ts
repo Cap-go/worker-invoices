@@ -90,7 +90,7 @@ app.get('/', async (c) => {
     }
 
     // Fetch company info for legal requirements
-    let companyInfo = { name: 'Not Set', address: 'Not Set', email: 'Not Set', vat: 'Not Set', brandColor: 'Not Set', logo: 'Not Set' };
+    let companyInfo = { name: 'Not Set', address: 'Not Set', email: 'Not Set', vat: 'Not Set', brandColor: 'Not Set', logo: 'Not Set', secondaryColor: 'Not Set' };
     try {
       const accountResponse = await fetch('https://api.stripe.com/v1/account', {
         headers: {
@@ -106,6 +106,7 @@ app.get('/', async (c) => {
         companyInfo.email = accountData.business_profile?.support_email ? 'Set' : 'Not Set';
         companyInfo.vat = accountData.settings.invoices?.default_account_tax_ids?.length > 0 ? 'Set' : 'Not Set';
         companyInfo.brandColor = accountData.settings.branding?.primary_color ? 'Set' : 'Not Set';
+        companyInfo.secondaryColor = accountData.settings.branding?.secondary_color ? 'Set' : 'Not Set';
         companyInfo.logo = accountData.settings.branding?.logo ? 'Set' : 'Not Set';
       }
     } catch (error) {
