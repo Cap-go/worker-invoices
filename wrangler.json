@@ -10,13 +10,14 @@
     "nodejs_compat_v2"
   ],
   "vars": {
-    "SMTP_HOST": "",
-    "SMTP_PORT": "",
-    "SMTP_USERNAME": "",
+    "SMTP_HOST": "smtp.resend.com",
+    "SMTP_PORT": "587",
+    "SMTP_USERNAME": "resend",
+    "SMTP_SECURE": "true",
     "SMTP_PASSWORD": "",
-    "SMTP_FROM": "",
+    "SMTP_FROM": "Capgo <noreply@capgo.app>",
     "STRIPE_API_KEY": "",
-    "CF_WORKER_DOMAIN": ""
+    "CF_WORKER_DOMAIN": "invoices.capgo.app"
   },
   "kv_namespaces": [
     { "binding": "INVOICE_DB", "id": "your-kv-namespace-id" }

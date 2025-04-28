@@ -452,7 +452,7 @@ async function sendInvoice(c: any, customerId: string, additionalInfo: string, c
     const transporter = nodemailer.createTransport({
       host: c.env.SMTP_HOST,
       port: parseInt(c.env.SMTP_PORT, 10),
-      secure: c.env.SMTP_PORT === '465',
+      secure: c.env.SMTP_SECURE === 'true',
       auth: {
         user: c.env.SMTP_USERNAME,
         pass: c.env.SMTP_PASSWORD,
