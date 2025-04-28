@@ -17,7 +17,8 @@
     "SMTP_PASSWORD": "",
     "SMTP_FROM": "Capgo <noreply@capgo.app>",
     "STRIPE_API_KEY": "",
-    "CF_WORKER_DOMAIN": "invoices.capgo.app"
+    "CF_WORKER_DOMAIN": "invoices.capgo.app",
+    "DEV_MODE": "true"
   },
   "kv_namespaces": [
     { "binding": "INVOICE_DB", "id": "your-kv-namespace-id" }
