@@ -1,0 +1,13 @@
+{
+  "compilerOptions": {
+    "target": "ESNext",
+    "module": "NodeNext",
+    "skipLibCheck": true,
+    "strict": true,
+    "esModuleInterop": true,
+    "lib": ["ESNext"],
+    "moduleResolution": "nodenext",
+    "types": ["bun-types", "@cloudflare/workers-types"]
+  },
+  "include": ["src"]
+} 

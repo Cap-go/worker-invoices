@@ -1,0 +1,16 @@
+# Node.js & Bun
+node_modules/
+bun.lockb
+
+# Build output
+dist/
+
+# Environment variables
+.env
+
+# IDE files
+.idea/
+.vscode/
+
+# macOS
+.DS_Store 

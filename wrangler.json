@@ -1,0 +1,26 @@
+{
+  "name": "invoice-sender",
+  "main": "src/index.ts",
+  "compatibility_date": "2023-10-01",
+  "workers_dev": true,
+  "routes": [
+    { "pattern": "*", "zone": "invoicesender.com" }
+  ],
+  "vars": {
+    "SMTP_HOST": "",
+    "SMTP_PORT": "",
+    "SMTP_USERNAME": "",
+    "SMTP_PASSWORD": "",
+    "SMTP_FROM": "",
+    "STRIPE_API_KEY": "",
+    "CF_WORKER_DOMAIN": ""
+  },
+  "kv_namespaces": [
+    { "binding": "INVOICE_DB", "id": "invoice-db" }
+  ],
+  "triggers": {
+    "schedules": [
+      { "cron": "* * * * *" }
+    ]
+  }
+} 
