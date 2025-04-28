@@ -2,7 +2,17 @@ import { Hono } from 'hono';
 import nodemailer from 'nodemailer';
 import jsPDF from 'jspdf';
 
-const app = new Hono<{ Bindings: { STRIPE_API_KEY: string; SMTP_HOST: string; SMTP_PORT: string; SMTP_USERNAME: string; SMTP_PASSWORD: string; SMTP_FROM: string; INVOICE_DB: KVNamespace; CF_WORKER_DOMAIN: string; DEV_MODE: string } }>();
+const app = new Hono<{ Bindings: { 
+  STRIPE_API_KEY: string; 
+  SMTP_HOST: string; 
+  SMTP_PORT: string; 
+  SMTP_USERNAME: string; 
+  SMTP_PASSWORD: string; 
+  SMTP_FROM: string; 
+  INVOICE_DB: KVNamespace; 
+  CF_WORKER_DOMAIN: string; 
+  DEV_MODE: string 
+} }>();
 
 // API endpoint for sending invoices manually
 app.post('/api/send-invoice', async (c) => {
