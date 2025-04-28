@@ -53,6 +53,141 @@ const renderHtml = (title: string, content: string, status: 'success' | 'error' 
   </html>
 `;
 
+// Homepage to explain API usage, portal, webhook configuration, and status
+app.get('/', async (c) => {
+  try {
+    // Check for missing environment variables
+    const missingVars = [];
+    if (!c.env.STRIPE_API_KEY) missingVars.push('STRIPE_API_KEY');
+    if (!c.env.SMTP_HOST) missingVars.push('SMTP_HOST');
+    if (!c.env.SMTP_PORT) missingVars.push('SMTP_PORT');
+    if (!c.env.SMTP_USERNAME) missingVars.push('SMTP_USERNAME');
+    if (!c.env.SMTP_PASSWORD) missingVars.push('SMTP_PASSWORD');
+    if (!c.env.SMTP_FROM) missingVars.push('SMTP_FROM');
+    if (!c.env.CF_WORKER_DOMAIN) missingVars.push('CF_WORKER_DOMAIN');
+
+    // Check webhook status
+    let webhookStatus = 'Unknown';
+    try {
+      const webhookResponse = await fetch('https://api.stripe.com/v1/webhook_endpoints', {
+        headers: {
+          'Authorization': `Bearer ${c.env.STRIPE_API_KEY}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (webhookResponse.ok) {
+        const webhookData = await webhookResponse.json() as any;
+        const webhookUrl = `https://${c.env.CF_WORKER_DOMAIN}/webhook/stripe`;
+        const existingWebhook = webhookData.data.find((wh: any) => wh.url === webhookUrl && wh.enabled_events.includes('charge.succeeded'));
+        webhookStatus = existingWebhook ? 'Configured' : 'Not Configured';
+      } else {
+        webhookStatus = 'Error fetching webhook status';
+      }
+    } catch (error) {
+      webhookStatus = 'Error fetching webhook status';
+    }
+
+    // Fetch company info for legal requirements
+    let companyInfo = { name: 'Not Available', address: 'Not Available', email: 'Not Available', vat: 'Not Available' };
+    try {
+      const accountResponse = await fetch('https://api.stripe.com/v1/account', {
+        headers: {
+          'Authorization': `Bearer ${c.env.STRIPE_API_KEY}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (accountResponse.ok) {
+        const accountData = await accountResponse.json() as any;
+        companyInfo.name = accountData.business_profile?.name || 'Not Set';
+        companyInfo.address = accountData.settings.dashboard?.display_name ? `${accountData.settings.dashboard.display_name}, ${accountData.country || ''}` : 'Not Set';
+        companyInfo.email = accountData.business_profile?.support_email || 'Not Set';
+        companyInfo.vat = accountData.business_profile?.tax_id || 'Not Set';
+      }
+    } catch (error) {
+      console.error('Error fetching company info:', error);
+    }
+
+    // Determine if configuration is complete
+    const isConfigured = missingVars.length === 0 && webhookStatus === 'Configured';
+
+    const content = `
+      <h1 class="text-3xl font-bold mb-6 text-center">Invoice Sender API</h1>
+      <div class="bg-white shadow-md rounded-lg p-6 mb-6">
+        <h2 class="text-2xl font-semibold mb-4">Configuration Status</h2>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+          <div>
+            <p class="text-gray-700 font-medium">Environment Variables:</p>
+            ${missingVars.length > 0 ? 
+              `<p class="text-red-600">Missing: ${missingVars.join(', ')}</p>` : 
+              `<p class="text-green-600">All variables configured</p>`
+            }
+          </div>
+          <div>
+            <p class="text-gray-700 font-medium">Webhook Status:</p>
+            <p class="${webhookStatus === 'Configured' ? 'text-green-600' : webhookStatus === 'Not Configured' ? 'text-red-600' : 'text-yellow-600'}">${webhookStatus}</p>
+          </div>
+        </div>
+        <div>
+          <p class="text-gray-700 font-medium mb-2">Legally Required Company Information:</p>
+          <ul class="list-disc list-inside text-gray-700">
+            <li>Company Name: <span class="${companyInfo.name === 'Not Set' ? 'text-red-600' : 'text-green-600'}">${companyInfo.name}</span></li>
+            <li>Company Address: <span class="${companyInfo.address === 'Not Set' ? 'text-red-600' : 'text-green-600'}">${companyInfo.address}</span></li>
+            <li>Company Email: <span class="${companyInfo.email === 'Not Set' ? 'text-red-600' : 'text-green-600'}">${companyInfo.email}</span></li>
+            <li>VAT ID: <span class="${companyInfo.vat === 'Not Set' ? 'text-red-600' : 'text-green-600'}">${companyInfo.vat}</span></li>
+          </ul>
+        </div>
+      </div>
+      <div class="bg-white shadow-md rounded-lg p-6 mb-6">
+        <h2 class="text-2xl font-semibold mb-4">Overview</h2>
+        <p class="text-gray-700 mb-4">This Cloudflare Worker automates sending invoices to customers after a successful Stripe charge. It listens for <code>charge.succeeded</code> events via a webhook and sends PDF invoices via email.</p>
+      </div>
+      <div class="bg-white shadow-md rounded-lg p-6 mb-6">
+        <h2 class="text-2xl font-semibold mb-4">API Usage</h2>
+        <p class="text-gray-700 mb-2">To manually send an invoice, use the following endpoint:</p>
+        <pre class="bg-gray-100 p-4 rounded-md text-sm overflow-auto mb-4">
+          <code>
+POST /api/send-invoice
+{
+  "customerId": "your-customer-id",
+  "chargeId": "your-charge-id"
+}
+          </code>
+        </pre>
+        <p class="text-gray-700 mb-2">Alternatively, use a GET request:</p>
+        <pre class="bg-gray-100 p-4 rounded-md text-sm overflow-auto mb-4">
+          <code>GET /api/send-invoice?customerId=your-customer-id&chargeId=your-charge-id</code>
+        </pre>
+      </div>
+      <div class="bg-white shadow-md rounded-lg p-6 mb-6">
+        <h2 class="text-2xl font-semibold mb-4">Customer Billing Portal</h2>
+        <p class="text-gray-700 mb-4">Customers can access their billing history and download invoices via a unique URL. Encode their Stripe Customer ID in base64 and append it to the URL:</p>
+        <pre class="bg-gray-100 p-4 rounded-md text-sm overflow-auto mb-4">
+          <code>https://${c.env.CF_WORKER_DOMAIN}/billing/&lt;base64-encoded-customer-id&gt;</code>
+        </pre>
+      </div>
+      <div class="bg-white shadow-md rounded-lg p-6 mb-6">
+        <h2 class="text-2xl font-semibold mb-4">Webhook Configuration</h2>
+        <p class="text-gray-700 mb-4">This worker automatically sets up a Stripe webhook to listen for <code>charge.succeeded</code> events. A scheduled task runs every minute to ensure the webhook is configured using the <code>CF_WORKER_DOMAIN</code>.</p>
+        <p class="text-gray-700 mb-4">Webhook URL: <code>https://${c.env.CF_WORKER_DOMAIN}/webhook/stripe</code></p>
+        <p class="text-gray-700 mb-4">Note: Webhook signature verification is not implemented in this basic setup. For production, consider adding verification for enhanced security.</p>
+      </div>
+    `;
+
+    return c.html(renderHtml('Invoice Sender API', content), isConfigured ? 200 : 503 as any);
+  } catch (error) {
+    console.error('Error rendering homepage:', error);
+    const content = `
+      <div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative" role="alert">
+        <strong class="font-bold">Error:</strong>
+        <span class="block sm:inline">Internal server error.</span>
+      </div>
+    `;
+    return c.html(renderHtml('Error - Internal Server Error', content, 'error'), 500 as any);
+  }
+});
+
 // Homepage to list past charges for a customer
 app.get('/billing/:encodedCustomerId', async (c) => {
   try {
