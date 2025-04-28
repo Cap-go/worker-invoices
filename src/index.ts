@@ -1,7 +1,3 @@
-// Ensure globals are available for jsPDF compatibility in Cloudflare Workers
-const window = { document: { createElementNS: () => { return {} } } };
-const navigator = {};
-
 import { Hono } from 'hono';
 import nodemailer from 'nodemailer';
 // Using a minified or Worker-compatible version of jsPDF if available
