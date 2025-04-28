@@ -1,4 +1,3 @@
-
 function getCopyApiExampleScript(cfWorkerDomain: string) {
   const html = `<script>
     window.copyApiExample = function(type) {
@@ -93,21 +92,29 @@ export const home = async (c: any) => {
             'Content-Type': 'application/json',
           },
         });
-  
+        console.log('accountResponse', accountResponse.status);
+
         if (accountResponse.ok) {
           console.log('accountResponse.ok');
           const accountData = await accountResponse.json() as any;
           console.log('accountData', accountData);
-          companyInfo.name = accountData.business_profile?.name ? 'Set' : 'Not Set';
-          companyInfo.address = accountData.settings.dashboard?.display_name && accountData.country ? 'Set' : 'Not Set';
-          companyInfo.email = accountData.business_profile?.support_email ? 'Set' : 'Not Set';
-          companyInfo.vat = accountData.settings.invoices?.default_account_tax_ids?.length > 0 ? 'Set' : 'Not Set';
-          companyInfo.brandColor = accountData.settings.branding?.primary_color ? 'Set' : 'Not Set';
-          companyInfo.secondaryColor = accountData.settings.branding?.secondary_color ? 'Set' : 'Not Set';
-          companyInfo.logo = accountData.settings.branding?.logo ? 'Set' : 'Not Set';
+          companyInfo.name = accountData.business_profile?.name || 'Not Set';
+          companyInfo.address = (accountData.settings?.dashboard?.display_name && accountData.country) || 'Not Set';
+          companyInfo.email = accountData.business_profile?.support_email || 'Not Set';
+          companyInfo.vat = (accountData.settings?.invoices?.default_account_tax_ids?.length > 0) ? 'Set' : 'Not Set';
+          companyInfo.brandColor = accountData.settings?.branding?.primary_color || 'Not Set';
+          companyInfo.secondaryColor = accountData.settings?.branding?.secondary_color || 'Not Set';
+          companyInfo.logo = accountData.settings?.branding?.logo || 'Not Set';
+        } else {
+          console.error('Account check failed with status:', accountResponse.status);
+          console.error('Account check response:', await accountResponse.text());
+          // Set default values or fallback if account data is not accessible
+          console.log('Using fallback values for company info due to permission restrictions');
         }
       } catch (error) {
         console.error('Error fetching company info:', error);
+        // Set default values or fallback if account data is not accessible
+        console.log('Using fallback values for company info due to error');
       }
   
       // Determine if configuration is complete

@@ -39,6 +39,11 @@ export async function sendInvoice(c: any, customerId: string, chargeId: string) 
     },
   });
 
+  if (!accountResponse.ok) {
+    console.log('Failed to fetch Stripe account data');
+    return c.json({ error: 'Failed to fetch Stripe account data' }, 500 as any);
+  }
+
   const accountData = await accountResponse.json() as any;
   const logoUrl = accountData.settings.branding.logo || '';
   const brandColor = accountData.settings.branding.primary_color || '#5562eb';

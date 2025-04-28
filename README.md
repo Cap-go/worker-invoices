@@ -23,7 +23,7 @@ A homepage is available at the root URL (`/`) of your deployed worker, which hel
 1. **Clone the Repository**: Clone this repository to your local machine.
 2. **Install Dependencies**: Run `bun install` to install the necessary dependencies.
 3. **Configure Environment Variables**: Set up the required environment variables in your Cloudflare Worker dashboard or in a `.env` file for local development.
-   - `STRIPE_API_KEY`: Your Stripe API key. <a href="https://dashboard.stripe.com/apikeys/create?name=InvoiceWorker&permissions%5B%5D=rak_charge_read&permissions%5B%5D=rak_customer_read&permissions%5B%5D=rak_account_read&permissions%5B%5D=rak_webhook_write" target="_blank">Create Stripe API key with correct permissions</a>
+   - `STRIPE_API_KEY`: Your Stripe API key. <a href="https://dashboard.stripe.com/apikeys/create?name=InvoiceWorker" target="_blank">Create Stripe API key (use unrestricted key for full access)</a>
    - `SMTP_HOST`, `SMTP_PORT`, `SMTP_USERNAME`, `SMTP_PASSWORD`, `SMTP_FROM`, `SMTP_SECURE`: SMTP settings for sending emails.
    - `CF_WORKER_DOMAIN`: Your Cloudflare Worker domain.
    - `DEV_MODE`: Set to 'true' for development mode to send emails to a company email address.
@@ -79,4 +79,10 @@ Send a POST request to `/api/send-invoice` with the following JSON body for manu
 
 Alternatively, use a GET request to `/api/send-invoice?customerId=your-customer-id&chargeId=your-charge-id` to resend an invoice.
 
-The API will fetch Stripe data to brand the email and PDF with the logo and brand color. 
+The API will fetch Stripe data to brand the email and PDF with the logo and brand color.
+
+## Stripe API Key Permissions
+
+To fetch legally required company information (such as name, address, email, VAT ID, and branding) from Stripe, an **unrestricted API key** is necessary. Restricted keys lack the permissions to access this data, which is critical for generating compliant invoices.
+
+**Note:** While unrestricted keys have broader access, this application is secure for use with them. The code is open and readable, and as the user, you own and control the deployment of this worker. You can verify exactly what the code does with the key.
