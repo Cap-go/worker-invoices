@@ -9,20 +9,23 @@
   "compatibility_flags": [
     "nodejs_compat_v2"
   ],
+  "workers_dev": false,
+  "observability": {
+    "enabled": true,
+    "head_sampling_rate": 1
+  },
+  "upload_source_maps": true,
   "vars": {
     "SMTP_HOST": "smtp.resend.com",
     "SMTP_PORT": "587",
     "SMTP_USERNAME": "resend",
     "SMTP_SECURE": "true",
-    "SMTP_PASSWORD": "",
+    "SMTP_PASSWORD": "***",
     "SMTP_FROM": "Capgo <noreply@capgo.app>",
-    "STRIPE_API_KEY": "",
+    "STRIPE_API_KEY": "***",
     "CF_WORKER_DOMAIN": "invoices.capgo.app",
     "DEV_MODE": "true"
   },
-  "kv_namespaces": [
-    { "binding": "INVOICE_DB", "id": "your-kv-namespace-id" }
-  ],
   "triggers": {
     "crons": [
       "* * * * *"
