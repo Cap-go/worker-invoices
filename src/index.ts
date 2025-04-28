@@ -102,6 +102,7 @@ app.get('/', async (c) => {
 
       if (accountResponse.ok) {
         const accountData = await accountResponse.json() as any;
+        console.log('accountData', accountData);
         companyInfo.name = accountData.business_profile?.name ? 'Set' : 'Not Set';
         companyInfo.address = accountData.settings.dashboard?.display_name && accountData.country ? 'Set' : 'Not Set';
         companyInfo.email = accountData.business_profile?.support_email ? 'Set' : 'Not Set';
