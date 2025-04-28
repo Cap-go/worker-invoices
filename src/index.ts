@@ -362,12 +362,12 @@ async function sendInvoice(c: any, customerId: string, additionalInfo: string, c
   const dateToday = (now.getMonth() + 1) + '/' + now.getDate() + '/' + now.getFullYear();
 
   const setFontType = (val: string) => {
-    doc.setFontType(val);
+    doc.setFont('helvetica', val);
   };
 
   const docText = (x: number, y: number, text: string) => {
-    if (x > 0) return doc.text(x, y, text);
-    return doc.text(pageWidth + x, y, text, null, null, 'right');
+    if (x > 0) return doc.text(text, x, y);
+    return doc.text(text, pageWidth + x, y, { align: 'right' });
   };
 
   doc.setFont('helvetica');
@@ -411,7 +411,7 @@ async function sendInvoice(c: any, customerId: string, additionalInfo: string, c
 
   setFontType('bold');
   docText(20, 98, 'Description');
-  doc.text(pageWidth - 20, 98, 'Amount', null, null, 'right');
+  doc.text('Amount', pageWidth - 20, 98, { align: 'right' });
 
   doc.setLineWidth(0.333);
   doc.line(20, 102, pageWidth - 20, 102);
