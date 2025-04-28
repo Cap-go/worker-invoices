@@ -140,12 +140,12 @@ app.get('/', async (c) => {
         <div>
           <p class="text-gray-700 font-medium mb-2">Legally Required Company Information:</p>
           <ul class="list-disc list-inside text-gray-700">
-            <li>Company Name: <span class="${companyInfo.name === 'Not Set' ? 'text-red-600' : 'text-green-600'}">${companyInfo.name}</span></li>
-            <li>Company Address: <span class="${companyInfo.address === 'Not Set' ? 'text-red-600' : 'text-green-600'}">${companyInfo.address}</span></li>
-            <li>Company Email: <span class="${companyInfo.email === 'Not Set' ? 'text-red-600' : 'text-green-600'}">${companyInfo.email}</span></li>
-            <li>VAT ID: <span class="${companyInfo.vat === 'Not Set' ? 'text-red-600' : 'text-green-600'}">${companyInfo.vat}</span></li>
-            <li>Brand Color: <span class="${companyInfo.brandColor === 'Not Set' ? 'text-red-600' : 'text-green-600'}">${companyInfo.brandColor}</span></li>
-            <li>Logo: <span class="${companyInfo.logo === 'Not Set' ? 'text-red-600' : 'text-green-600'}">${companyInfo.logo}</span></li>
+            <li>Company Name: <span class="${companyInfo.name === 'Not Set' ? 'text-red-600' : 'text-green-600'}">${companyInfo.name === 'Not Set' ? 'Not Set' : 'Set'}${companyInfo.name === 'Not Set' ? ' <a href="https://dashboard.stripe.com/settings/account" target="_blank" class="text-blue-500 underline">Set in Stripe</a>' : ''}</span></li>
+            <li>Company Address: <span class="${companyInfo.address === 'Not Set' ? 'text-red-600' : 'text-green-600'}">${companyInfo.address === 'Not Set' ? 'Not Set' : 'Set'}${companyInfo.address === 'Not Set' ? ' <a href="https://dashboard.stripe.com/settings/account" target="_blank" class="text-blue-500 underline">Set in Stripe</a>' : ''}</span></li>
+            <li>Company Email: <span class="${companyInfo.email === 'Not Set' ? 'text-red-600' : 'text-green-600'}">${companyInfo.email === 'Not Set' ? 'Not Set' : 'Set'}${companyInfo.email === 'Not Set' ? ' <a href="https://dashboard.stripe.com/settings/emails" target="_blank" class="text-blue-500 underline">Set in Stripe</a>' : ''}</span></li>
+            <li>VAT ID: <span class="${companyInfo.vat === 'Not Set' ? 'text-red-600' : 'text-green-600'}">${companyInfo.vat === 'Not Set' ? 'Not Set' : 'Set'}${companyInfo.vat === 'Not Set' ? ' <a href="https://dashboard.stripe.com/settings/tax" target="_blank" class="text-blue-500 underline">Set in Stripe</a>' : ''}</span></li>
+            <li>Brand Color: <span class="${companyInfo.brandColor === 'Not Set' ? 'text-red-600' : 'text-green-600'}">${companyInfo.brandColor === 'Not Set' ? 'Not Set' : 'Set'}${companyInfo.brandColor === 'Not Set' ? ' <a href="https://dashboard.stripe.com/settings/branding" target="_blank" class="text-blue-500 underline">Set in Stripe</a>' : ''}</span></li>
+            <li>Logo: <span class="${companyInfo.logo === 'Not Set' ? 'text-red-600' : 'text-green-600'}">${companyInfo.logo === 'Not Set' ? 'Not Set' : 'Set'}${companyInfo.logo === 'Not Set' ? ' <a href="https://dashboard.stripe.com/settings/branding" target="_blank" class="text-blue-500 underline">Set in Stripe</a>' : ''}</span></li>
           </ul>
         </div>
       </div>
