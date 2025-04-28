@@ -2,6 +2,8 @@
 
 This Cloudflare Worker automates the process of sending invoices to customers after a successful charge via Stripe.
 
+[![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/your-repo/invoice-sender)
+
 ## Overview
 
 This project uses Cloudflare Workers to listen for Stripe webhooks, specifically for `charge.succeeded` events, and automatically sends an invoice email to the customer with a PDF attachment. It also provides a billing history page for customers to view past charges and resend invoices.
@@ -19,7 +21,7 @@ This project uses Cloudflare Workers to listen for Stripe webhooks, specifically
 1. **Clone the Repository**: Clone this repository to your local machine.
 2. **Install Dependencies**: Run `bun install` to install the necessary dependencies.
 3. **Configure Environment Variables**: Set up the required environment variables in your Cloudflare Worker dashboard or in a `.env` file for local development.
-   - `STRIPE_API_KEY`: Your Stripe API key.
+   - `STRIPE_API_KEY`: Your Stripe API key. [Create Stripe API key with correct permissions](https://dashboard.stripe.com/apikeys/create?permissions=read:charges,read:customers,read:account,write:webhook_endpoints)
    - `SMTP_HOST`, `SMTP_PORT`, `SMTP_USERNAME`, `SMTP_PASSWORD`, `SMTP_FROM`: SMTP settings for sending emails.
    - `CF_WORKER_DOMAIN`: Your Cloudflare Worker domain.
    - `DEV_MODE`: Set to 'true' for development mode to send emails to a company email address.
@@ -58,14 +60,9 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 
 ## Stripe Webhook Setup for Auto-Invoicing
 
-To automatically send invoices after a successful charge:
+The worker automatically sets up the necessary Stripe webhook to listen for `charge.succeeded` events. You don't need to manually configure this in the Stripe Dashboard. The worker runs a scheduled task every minute to ensure the webhook is set up correctly using the `CF_WORKER_DOMAIN` provided. If the webhook is not present, it will be created.
 
-1. In your Stripe Dashboard, go to **Webhooks** and click **Add endpoint**.
-2. Set the endpoint URL to `https://your-worker-url/webhook/stripe`.
-3. Select the event `charge.succeeded` to listen for successful charges.
-4. Save the webhook. (Note: Webhook signature verification is not implemented in this basic setup; for production, add Stripe webhook signature verification.)
-
-The worker also runs a scheduled task every minute to ensure the webhook is set up in Stripe. If not present, it will attempt to create it using the `CF_WORKER_DOMAIN` provided.
+Note: Webhook signature verification is not implemented in this basic setup; for production, consider adding Stripe webhook signature verification for enhanced security.
 
 ## API Usage
 
@@ -74,9 +71,10 @@ Send a POST request to `/api/send-invoice` with the following JSON body for manu
 ```json
 {
   "customerId": "your-customer-id",
-  "apiKey": "your-invoice-api-key",
-  "additionalInfo": "any-additional-info"
+  "chargeId": "your-charge-id"
 }
 ```
+
+Alternatively, use a GET request to `/api/send-invoice?customerId=your-customer-id&chargeId=your-charge-id` to resend an invoice.
 
 The API will fetch Stripe data to brand the email and PDF with the logo and brand color. 

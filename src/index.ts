@@ -271,8 +271,7 @@ async function sendInvoice(c: any, customerId: string, additionalInfo: string, c
   // Check for mandatory legal fields for invoice
   const isDevMode = c.env.DEV_MODE === 'true';
   const mandatoryFieldsMissing = !companyName || !companyAddress || !companyEmail || !companyVat;
-  const recipientEmailInitial = isDevMode && companyEmail ? companyEmail : email;
-  const recipientEmail = mandatoryFieldsMissing && companyEmail ? companyEmail : recipientEmailInitial;
+  const recipientEmail = isDevMode ? email : companyEmail;
 
   if (mandatoryFieldsMissing && !companyEmail) {
     console.log('Mandatory legal fields for invoice are missing and no company email available to notify.');
@@ -351,15 +350,12 @@ async function sendInvoice(c: any, customerId: string, additionalInfo: string, c
   });
 
   const pageWidth = doc.internal.pageSize.width;
-  const ppi = 3;
 
   const now = new Date();
   const dateToday = (now.getMonth() + 1) + '/' + now.getDate() + '/' + now.getFullYear();
 
-  let currentFontType = 'normal';
   const setFontType = (val: string) => {
     doc.setFontType(val);
-    currentFontType = val;
   };
 
   const docText = (x: number, y: number, text: string) => {
