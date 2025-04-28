@@ -104,7 +104,7 @@ app.get('/', async (c) => {
         companyInfo.name = accountData.business_profile?.name ? 'Set' : 'Not Set';
         companyInfo.address = accountData.settings.dashboard?.display_name && accountData.country ? 'Set' : 'Not Set';
         companyInfo.email = accountData.business_profile?.support_email ? 'Set' : 'Not Set';
-        companyInfo.vat = accountData.business_profile?.tax_id ? 'Set' : 'Not Set';
+        companyInfo.vat = accountData.settings.invoices?.default_account_tax_ids?.length > 0 ? 'Set' : 'Not Set';
         companyInfo.brandColor = accountData.settings.branding?.primary_color ? 'Set' : 'Not Set';
         companyInfo.logo = accountData.settings.branding?.logo ? 'Set' : 'Not Set';
       }
@@ -403,11 +403,12 @@ async function sendInvoice(c: any, customerId: string, additionalInfo: string, c
 
   const accountData = await accountResponse.json() as any;
   const logoUrl = accountData.settings.branding.logo || '';
-  const brandColor = accountData.settings.branding.primary_color || '#000000';
+  const brandColor = accountData.settings.branding.primary_color || '#5562eb';
+  const secondaryColor = accountData.settings.branding.secondary_color || '#f6f9fc';
   const companyName = accountData.business_profile?.name || '';
   const companyAddress = accountData.settings.dashboard?.display_name ? `${accountData.settings.dashboard.display_name}, ${accountData.country || ''}` : '';
   const companyEmail = accountData.business_profile?.support_email || '';
-  const companyVat = accountData.business_profile?.tax_id || '';
+  const companyVat = accountData.settings.invoices?.default_account_tax_ids?.length > 0 ? accountData.settings.invoices.default_account_tax_ids[0] : '';
 
   // Generate or increment invoice number for this customer using date and customerId
   const currentDate = new Date();
@@ -481,20 +482,22 @@ async function sendInvoice(c: any, customerId: string, additionalInfo: string, c
   const billingUrl = `https://${c.env.CF_WORKER_DOMAIN}/billing/${btoa(customerId)}`;
   const emailContent = `
     <html>
-      <body style="color: ${brandColor};">
-        <img src="${logoUrl}" alt="Brand Logo" style="max-width: 200px;" />
-        <h1>Invoice #${invoiceNumber} for ${name}</h1>
-        <p>Email: ${email}</p>
-        <p>Charge: $${chargeAmount} on ${chargeDate}</p>
-        <p>Charge ID: ${chargeId}</p>
-        <p>Download your invoice PDF from the attached link.</p>
-        <p>View all your billing history <a href="${billingUrl}" style="color: ${brandColor}; text-decoration: underline;">here</a>.</p>
-        <p>Need to update your billing information? <a href="https://billing.stripe.com/p/login/customer/${customerId}" style="color: ${brandColor}; text-decoration: underline;">Manage your billing details here</a>.</p>
+      <body style="color: ${brandColor}; background-color: ${secondaryColor}; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; margin: 0; padding: 20px;">
+        <div style="max-width: 600px; margin: 0 auto; background-color: #ffffff; padding: 30px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);">
+          <img src="${logoUrl}" alt="Brand Logo" style="max-width: 200px; margin-bottom: 20px;" />
+          <h1 style="font-size: 24px; font-weight: bold; margin-bottom: 10px;">Invoice #${invoiceNumber} for ${name}</h1>
+          <p style="margin-bottom: 10px;">Email: ${email}</p>
+          <p style="margin-bottom: 10px;">Charge: $${chargeAmount} on ${chargeDate}</p>
+          <p style="margin-bottom: 10px;">Charge ID: ${chargeId}</p>
+          <p style="margin-bottom: 20px;">Download your invoice PDF from the attached link.</p>
+          <p style="margin-bottom: 10px;">View all your billing history <a href="${billingUrl}" style="color: ${brandColor}; text-decoration: underline;">here</a>.</p>
+          <p>Need to update your billing information? <a href="https://billing.stripe.com/p/login/customer/${customerId}" style="color: ${brandColor}; text-decoration: underline;">Manage your billing details here</a>.</p>
+        </div>
       </body>
     </html>
   `;
 
-  // Generate PDF using jsPDF
+  // Generate PDF using jsPDF with Stripe-like styling
   const doc = new jsPDF({
     orientation: 'p',
     format: 'a4'
@@ -502,8 +505,8 @@ async function sendInvoice(c: any, customerId: string, additionalInfo: string, c
 
   const pageWidth = doc.internal.pageSize.width;
 
-  const now = new Date();
-  const dateToday = (now.getMonth() + 1) + '/' + now.getDate() + '/' + now.getFullYear();
+  const invoiceDate = new Date();
+  const dateToday = (invoiceDate.getMonth() + 1) + '/' + invoiceDate.getDate() + '/' + invoiceDate.getFullYear();
 
   const setFontType = (val: string) => {
     doc.setFont('helvetica', val);
@@ -514,59 +517,78 @@ async function sendInvoice(c: any, customerId: string, additionalInfo: string, c
     return doc.text(text, pageWidth + x, y, { align: 'right' });
   };
 
+  // Set background color for header
+  doc.setFillColor(secondaryColor);
+  doc.rect(0, 0, pageWidth, 40, 'F');
+
+  // Set brand color for text
+  doc.setTextColor(brandColor);
+
   doc.setFont('helvetica');
   setFontType('bold');
-  doc.setFontSize(14);
+  doc.setFontSize(18);
   if (companyName) {
-    docText(20, 24, companyName);
+    docText(20, 20, companyName);
   }
-  docText(-20, 24, `Invoice #${invoiceNumber}`);
+  docText(-20, 20, `Invoice #${invoiceNumber}`);
 
   setFontType('normal');
   doc.setFontSize(10);
   doc.setLineHeightFactor(1.3);
   if (companyAddress) {
-    docText(20, 30, companyAddress.split(', ')[0] || '');
+    docText(20, 26, companyAddress.split(', ')[0] || '');
     if (companyAddress.split(', ')[1]) {
-      docText(20, 36, companyAddress.split(', ')[1]);
+      docText(20, 32, companyAddress.split(', ')[1]);
     }
   }
   if (companyVat) {
-    docText(20, companyAddress && companyAddress.split(', ')[1] ? 42 : companyAddress ? 36 : 30, `VAT ID: ${companyVat}`);
+    docText(20, companyAddress && companyAddress.split(', ')[1] ? 38 : companyAddress ? 32 : 26, `VAT ID: ${companyVat}`);
   }
   if (companyEmail) {
-    docText(20, companyVat ? (companyAddress && companyAddress.split(', ')[1] ? 48 : companyAddress ? 42 : 36) : (companyAddress && companyAddress.split(', ')[1] ? 42 : companyAddress ? 36 : 30), `Email: ${companyEmail}`);
+    docText(20, companyVat ? (companyAddress && companyAddress.split(', ')[1] ? 44 : companyAddress ? 38 : 32) : (companyAddress && companyAddress.split(', ')[1] ? 38 : companyAddress ? 32 : 26), `Email: ${companyEmail}`);
   }
-  docText(-20, 30, dateToday);
+  docText(-20, 26, `Date: ${dateToday}`);
+
+  // Reset text color to black for body content
+  doc.setTextColor(0, 0, 0);
 
   if (name) {
-    docText(20, 60, name);
+    docText(20, 50, name);
   }
   if (customerData.address?.line1) {
-    docText(20, 66, customerData.address.line1);
+    docText(20, 56, customerData.address.line1);
   }
   if (customerData.address?.city || customerData.address?.state || customerData.address?.postal_code) {
-    docText(20, customerData.address?.line1 ? 72 : 66, `${customerData.address?.city || ''}${customerData.address?.city && customerData.address?.state ? ', ' : ''}${customerData.address?.state || ''} ${customerData.address?.postal_code || ''}`);
+    docText(20, customerData.address?.line1 ? 62 : 56, `${customerData.address?.city || ''}${customerData.address?.city && customerData.address?.state ? ', ' : ''}${customerData.address?.state || ''} ${customerData.address?.postal_code || ''}`);
   }
   if (customerData.address?.country) {
-    docText(20, (customerData.address?.city || customerData.address?.state || customerData.address?.postal_code) ? (customerData.address?.line1 ? 78 : 72) : (customerData.address?.line1 ? 72 : 66), customerData.address.country);
+    docText(20, (customerData.address?.city || customerData.address?.state || customerData.address?.postal_code) ? (customerData.address?.line1 ? 68 : 62) : (customerData.address?.line1 ? 62 : 56), customerData.address.country);
   }
-  docText(20, customerData.address?.country ? ((customerData.address?.city || customerData.address?.state || customerData.address?.postal_code) ? (customerData.address?.line1 ? 84 : 78) : (customerData.address?.line1 ? 78 : 72)) : ((customerData.address?.city || customerData.address?.state || customerData.address?.postal_code) ? (customerData.address?.line1 ? 78 : 72) : (customerData.address?.line1 ? 72 : 66)), `Email: ${email}`);
+  docText(20, customerData.address?.country ? ((customerData.address?.city || customerData.address?.state || customerData.address?.postal_code) ? (customerData.address?.line1 ? 74 : 68) : (customerData.address?.line1 ? 68 : 62)) : ((customerData.address?.city || customerData.address?.state || customerData.address?.postal_code) ? (customerData.address?.line1 ? 68 : 62) : (customerData.address?.line1 ? 62 : 56)), `Email: ${email}`);
 
+  // Table header with brand color background
+  doc.setFillColor(brandColor);
+  doc.rect(20, 85, pageWidth - 40, 10, 'F');
+  doc.setTextColor(255, 255, 255); // White text for header
   setFontType('bold');
-  docText(20, 98, 'Description');
-  doc.text('Amount', pageWidth - 20, 98, { align: 'right' });
+  docText(25, 91, 'Description');
+  docText(-25, 91, 'Amount');
 
-  doc.setLineWidth(0.333);
-  doc.line(20, 102, pageWidth - 20, 102);
+  // Reset text color for table content
+  doc.setTextColor(0, 0, 0);
+  doc.setLineWidth(0.1);
+  doc.line(20, 95, pageWidth - 20, 95);
 
   setFontType('normal');
-  docText(20, 108, `Payment for Charge ID ${chargeId}`);
-  docText(20, 114, `Date: ${chargeDate}`);
-  docText(-20, 108, `$${chargeAmount}`);
+  docText(25, 101, `Payment for Charge ID ${chargeId}`);
+  docText(25, 107, `Date: ${chargeDate}`);
+  docText(-25, 101, `$${chargeAmount}`);
 
+  // Total row with light background
+  doc.setFillColor(secondaryColor);
+  doc.rect(20, 115, pageWidth - 40, 10, 'F');
   setFontType('bold');
-  docText(-20, 128, `Total    $${chargeAmount}`);
+  docText(-25, 121, `Total: $${chargeAmount}`);
 
   const pdfBuffer = Buffer.from(doc.output('arraybuffer'));
   console.log('PDF generated successfully with jsPDF');
