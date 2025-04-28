@@ -1,4 +1,5 @@
 import { Hono } from 'hono';
+import { logger } from 'hono/logger'
 import nodemailer from 'nodemailer';
 import jsPDF from 'jspdf';
 
@@ -15,6 +16,8 @@ const app = new Hono<{
     DEV_MODE: string 
   }
 }>();
+
+app.use('*', logger());
 
 // API endpoint for sending invoices manually
 app.post('/api/send-invoice', async (c) => {
@@ -57,6 +60,7 @@ const renderHtml = (title: string, content: string, status: 'success' | 'error' 
 // Homepage to explain API usage, portal, webhook configuration, and status
 app.get('/', async (c) => {
   try {
+    console.log('c.env', c.env);
     // Check for missing environment variables
     const missingVars = [];
     if (!c.env.STRIPE_API_KEY) missingVars.push('STRIPE_API_KEY');
@@ -71,6 +75,7 @@ app.get('/', async (c) => {
     // Check webhook status
     let webhookStatus = 'Unknown';
     try {
+      console.log('checking webhook status');
       const webhookResponse = await fetch('https://api.stripe.com/v1/webhook_endpoints', {
         headers: {
           'Authorization': `Bearer ${c.env.STRIPE_API_KEY}`,
@@ -79,20 +84,25 @@ app.get('/', async (c) => {
       });
 
       if (webhookResponse.ok) {
+        console.log('webhookResponse.ok');
         const webhookData = await webhookResponse.json() as any;
         const webhookUrl = `https://${c.env.CF_WORKER_DOMAIN}/webhook/stripe`;
         const existingWebhook = webhookData.data.find((wh: any) => wh.url === webhookUrl && wh.enabled_events.includes('charge.succeeded'));
         webhookStatus = existingWebhook ? 'Configured' : 'Not Configured';
+        console.log('webhookStatus', webhookStatus);
       } else {
+        console.log('webhookResponse.not ok');
         webhookStatus = 'Error fetching webhook status';
       }
     } catch (error) {
+      console.log('error fetching webhook status', error);
       webhookStatus = 'Error fetching webhook status';
     }
 
     // Fetch company info for legal requirements
     let companyInfo = { name: 'Not Set', address: 'Not Set', email: 'Not Set', vat: 'Not Set', brandColor: 'Not Set', logo: 'Not Set', secondaryColor: 'Not Set' };
     try {
+      console.log('fetching company info');
       const accountResponse = await fetch('https://api.stripe.com/v1/account', {
         headers: {
           'Authorization': `Bearer ${c.env.STRIPE_API_KEY}`,
@@ -101,6 +111,7 @@ app.get('/', async (c) => {
       });
 
       if (accountResponse.ok) {
+        console.log('accountResponse.ok');
         const accountData = await accountResponse.json() as any;
         console.log('accountData', accountData);
         companyInfo.name = accountData.business_profile?.name ? 'Set' : 'Not Set';
