@@ -33,14 +33,14 @@ A homepage is available at the root URL (`/`) of your deployed worker, which hel
 
 - **Automatic Invoice Sending**: Once deployed, the worker will listen for Stripe `charge.succeeded` events and send invoices automatically.
 - **Manual Invoice Sending**: Use the `/api/send-invoice` endpoint with a POST or GET request to manually send an invoice. Parameters required are `customerId` and `chargeId`.
-- **Billing History Page**: Customers can access their billing history via a URL like `https://your-worker-domain/billing/<base64-encoded-customer-id>`.
+- **Billing History Page**: Customers can access their billing history via a URL like `https://your-worker-domain/billing/<customer-id>`.
 
 ## Providing Customers with Invoice URL
 
-To give customers access to their billing history and invoices, you can provide them with a direct link to their billing page. The URL format is `https://your-worker-domain/billing/<base64-encoded-customer-id>`. Here's how you can generate and send this link:
+To give customers access to their billing history and invoices, you can provide them with a direct link to their billing page. The URL format is `https://your-worker-domain/billing/<customer-id>`. Here's how you can generate and send this link:
 
-1. **Encode the Customer ID**: Use a base64 encoding function to encode the customer's Stripe ID. In JavaScript, you can use `btoa(customerId)` to achieve this.
-2. **Construct the URL**: Combine your Cloudflare Worker domain with the encoded ID to form the full URL, e.g., `https://your-worker-domain/billing/${btoa(customerId)}`.
+1. **The Customer ID**: Use the Stripe customer ID as main identifier
+2. **Construct the URL**: Combine your Cloudflare Worker domain with the encoded ID to form the full URL, e.g., `https://your-worker-domain/billing/${customerId}`.
 3. **Send the URL**: Include this URL in your communications with the customer, such as in the invoice email (which is already implemented in this project), or through other channels like a customer portal or notification system.
 
 This link will direct the customer to a page where they can view all past charges, download invoices, and access the Stripe billing portal to update their billing information.
