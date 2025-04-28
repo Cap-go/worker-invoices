@@ -1,5 +1,5 @@
 {
-  "name": "invoice-sender",
+  "name": "worker-invoices",
   "main": "src/index.ts",
   "compatibility_date": "2025-04-01",
   "route": {
