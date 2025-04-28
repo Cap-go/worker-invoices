@@ -1,5 +1,5 @@
+import { sendEmail } from "./email";
 import { renderHtml } from "./home";
-import nodemailer from 'nodemailer';
 
 export const billing = async (c: any) => {
   try {
@@ -44,7 +44,9 @@ export const billing = async (c: any) => {
     const content = `
       <h1 class="text-3xl font-bold mb-6 text-center">Billing History for ${name}</h1>
       <div class="mb-4">
-        <a href="/api/request-billing-link?customerId=${customerId}" class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded">Send me a Link to Edit Billing Info</a>
+        <form id="billingLinkForm" onsubmit="event.preventDefault(); sendFormRequest('billingLinkForm', '/api/request-billing-link?customerId=${customerId}', 'Billing link sent to your email', 'Failed to send billing link');" class="inline-block">
+          <button type="submit" class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded">Send me a Link to Edit Billing Info</button>
+        </form>
       </div>
       <div class="bg-white shadow-md rounded-lg overflow-hidden">
         <table class="min-w-full divide-y divide-gray-200">
@@ -61,7 +63,9 @@ export const billing = async (c: any) => {
                 <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${charge.created ? new Date(charge.created * 1000).toLocaleDateString() : 'N/A'}</td>
                 <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">$${charge.amount ? charge.amount / 100 : 'N/A'}</td>
                 <td class="px-6 py-4 whitespace-nowrap text-sm">
-                  <a href="/api/send-invoice?customerId=${customerId}&chargeId=${charge.id}" class="text-blue-600 hover:text-blue-800">Send me this Invoice</a>
+                  <form id="invoiceForm-${charge.id}" onsubmit="event.preventDefault(); sendFormRequest('invoiceForm-${charge.id}', '/api/send-invoice?customerId=${customerId}&chargeId=${charge.id}', 'Invoice sent to your email', 'Failed to send invoice');" class="inline-block">
+                    <button type="submit" class="text-blue-600 hover:text-blue-800">Send me this Invoice</button>
+                  </form>
                 </td>
               </tr>
             `).join('')}
@@ -133,17 +137,7 @@ export const requestBillingLink = async (c: any) => {
     const portalData = await portalResponse.json() as any;
     const portalUrl = portalData.url;
 
-    // Send email with billing link using nodemailer
-    const transporter = nodemailer.createTransport({
-      host: c.env.SMTP_HOST,
-      port: parseInt(c.env.SMTP_PORT, 10),
-      secure: c.env.SMTP_SECURE === 'true',
-      auth: {
-        user: c.env.SMTP_USERNAME,
-        pass: c.env.SMTP_PASSWORD,
-      },
-    });
-
+    // Send email with billing link using WorkerMailer
     const emailContent = `
       <html>
         <body>
@@ -159,16 +153,10 @@ export const requestBillingLink = async (c: any) => {
     `;
 
     const isDevMode = c.env.DEV_MODE === 'true';
-    const recipientEmail = isDevMode ? c.env.SMTP_FROM : email;
+    const recipientEmail = isDevMode ? c.env.EMAIL_FROM : email;
 
     console.log(`Sending email to ${recipientEmail} with billing link`);
-    await transporter.sendMail({
-      from: c.env.SMTP_FROM,
-      to: recipientEmail,
-      subject: 'Update Your Billing Information',
-      html: emailContent,
-    });
-
+    await sendEmail(c, c.env.EMAIL_FROM, recipientEmail, 'Update Your Billing Information', emailContent);
     console.log(`Email sent to ${recipientEmail} with billing link`);
     return c.json({ message: 'Billing link sent to your email' }, 200);
   } catch (error) {

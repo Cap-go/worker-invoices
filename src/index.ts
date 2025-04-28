@@ -8,14 +8,10 @@ import { webhookInit } from './webhook';
 const app = new Hono<{ 
   Bindings: { 
     STRIPE_API_KEY: string; 
-    SMTP_HOST: string; 
-    SMTP_PORT: string; 
-    SMTP_USERNAME: string; 
-    SMTP_PASSWORD: string; 
-    SMTP_FROM: string; 
-    SMTP_SECURE: string;
+    RESEND_API_KEY: string; 
     CF_WORKER_DOMAIN: string; 
-    DEV_MODE: string 
+    DEV_MODE: string; 
+    EMAIL_FROM: string 
   }
 }>();
 

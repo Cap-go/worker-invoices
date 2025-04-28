@@ -1,5 +1,6 @@
 import nodemailer from 'nodemailer';
 import jsPDF from 'jspdf';
+import { sendEmail } from './email';
 
 // Helper function to send invoice
 export async function sendInvoice(c: any, customerId: string, chargeId: string) {
@@ -112,22 +113,7 @@ export async function sendInvoice(c: any, customerId: string, chargeId: string) 
         </body>
       </html>
     `;
-    const transporter = nodemailer.createTransport({
-      host: c.env.SMTP_HOST,
-      port: parseInt(c.env.SMTP_PORT, 10),
-      secure: c.env.SMTP_SECURE === 'true',
-      auth: {
-        user: c.env.SMTP_USERNAME,
-        pass: c.env.SMTP_PASSWORD,
-      },
-    });
-    console.log('Sending notification email to company email');
-    await transporter.sendMail({
-      from: c.env.SMTP_FROM,
-      to: companyEmail,
-      subject: `Invoice Generation Issue #${invoiceNumber}`,
-      html: notificationContent,
-    });
+    await sendEmail(c, c.env.EMAIL_FROM, companyEmail, `Invoice Generation Issue #${invoiceNumber}`, notificationContent);
     console.log(`Notification email sent to ${companyEmail} about missing legal fields for invoice #${invoiceNumber}`);
     return c.json({ error: 'Invoice generation halted due to missing mandatory legal information, notification sent to company' }, 500 as any);
   }
@@ -249,31 +235,12 @@ export async function sendInvoice(c: any, customerId: string, chargeId: string) 
   console.log('PDF generated successfully with jsPDF');
 
   // Send email using nodemailer
-  console.log('Sending email using nodemailer');
-  const transporter = nodemailer.createTransport({
-    host: c.env.SMTP_HOST,
-    port: parseInt(c.env.SMTP_PORT, 10),
-    secure: c.env.SMTP_SECURE === 'true', // Use SSL if port is 465
-    auth: {
-      user: c.env.SMTP_USERNAME,
-      pass: c.env.SMTP_PASSWORD,
-    },
-  });
-
   console.log('Sending email to', recipientEmail);
-  await transporter.sendMail({
-    from: c.env.SMTP_FROM,
-    to: recipientEmail,
-    subject: `Invoice #${invoiceNumber}`,
-    html: emailContent,
-    attachments: [
-      {
-        filename: `invoice_${invoiceNumber}.pdf`,
-        content: pdfBuffer,
-        contentType: 'application/pdf',
-      },
-    ],
-  });
+  await sendEmail(c, c.env.EMAIL_FROM, recipientEmail, `Invoice #${invoiceNumber}`, emailContent, [{
+    filename: `invoice_${invoiceNumber}.pdf`,
+    content: pdfBuffer.toString('base64'),
+    mimeType: 'application/pdf',
+  }]);
 
   console.log(`Email sent to ${recipientEmail} with invoice #${invoiceNumber}`);
 

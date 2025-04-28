@@ -16,6 +16,27 @@ function getCopyApiExampleScript(cfWorkerDomain: string) {
   return html.replace(/__CF_WORKER_DOMAIN__/g, cfWorkerDomain)
 }
 
+function getFormSubmitScript() {
+  return `<script>
+    async function sendFormRequest(formId, endpoint, successMessage = 'Request successful', failureMessage = 'Request failed') {
+      const form = document.getElementById(formId);
+      try {
+        const response = await fetch(endpoint, {
+          method: 'GET',
+        });
+        const result = await response.json();
+        if (response.ok) {
+          alert(successMessage);
+        } else {
+          alert(failureMessage + ': ' + (result.error || 'Unknown error'));
+        }
+      } catch (error) {
+        alert(failureMessage + ': ' + error.message);
+      }
+    }
+  </script>`;
+}
+
 export const renderHtml = (title: string, content: string, cfWorkerDomain: string) => {
   const html = `
     <!DOCTYPE html>
@@ -32,6 +53,7 @@ export const renderHtml = (title: string, content: string, cfWorkerDomain: strin
           ${content}
         </div>
         ${getCopyApiExampleScript(cfWorkerDomain)}
+        ${getFormSubmitScript()}
       </body>
     </html>
   `;
@@ -44,13 +66,9 @@ export const home = async (c: any) => {
       // Check for missing environment variables
       const missingVars = [];
       if (!c.env.STRIPE_API_KEY) missingVars.push('STRIPE_API_KEY');
-      if (!c.env.SMTP_HOST) missingVars.push('SMTP_HOST');
-      if (!c.env.SMTP_SECURE) missingVars.push('SMTP_SECURE');
-      if (!c.env.SMTP_PORT) missingVars.push('SMTP_PORT');
-      if (!c.env.SMTP_USERNAME) missingVars.push('SMTP_USERNAME');
-      if (!c.env.SMTP_PASSWORD) missingVars.push('SMTP_PASSWORD');
-      if (!c.env.SMTP_FROM) missingVars.push('SMTP_FROM');
+      if (!c.env.RESEND_API_KEY) missingVars.push('RESEND_API_KEY');
       if (!c.env.CF_WORKER_DOMAIN) missingVars.push('CF_WORKER_DOMAIN');
+      if (!c.env.EMAIL_FROM) missingVars.push('EMAIL_FROM');
   
       // Check webhook status
       let webhookStatus = 'Unknown';

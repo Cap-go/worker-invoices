@@ -10,14 +10,13 @@
   },
   "dependencies": {
     "hono": "^4.7.7",
-    "nodemailer": "^6.10.1",
-    "jspdf": "^3.0.1"
+    "jspdf": "^3.0.1",
+    "resend": "^3.5.0"
   },
   "devDependencies": {
     "wrangler": "^4.13.2",
     "typescript": "^5.8.3",
     "@types/bun": "latest",
-    "@cloudflare/workers-types": "^4.20250428.0",
-    "@types/nodemailer": "^6.4.17"
+    "@cloudflare/workers-types": "^4.20250428.0"
   }
 }

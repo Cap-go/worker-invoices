@@ -24,7 +24,7 @@ A homepage is available at the root URL (`/`) of your deployed worker, which hel
 2. **Install Dependencies**: Run `bun install` to install the necessary dependencies.
 3. **Configure Environment Variables**: Set up the required environment variables in your Cloudflare Worker dashboard or in a `.env` file for local development.
    - `STRIPE_API_KEY`: Your Stripe API key. <a href="https://dashboard.stripe.com/apikeys" target="_blank">Go to Stripe API keys dashboard (create an unrestricted key for full access)</a>
-   - `SMTP_HOST`, `SMTP_PORT`, `SMTP_USERNAME`, `SMTP_PASSWORD`, `SMTP_FROM`, `SMTP_SECURE`: SMTP settings for sending emails.
+   - `RESEND_API_KEY`: Your Resend API key for sending emails. <a href="https://resend.com/api-keys" target="_blank">Go to Resend API keys dashboard</a>
    - `CF_WORKER_DOMAIN`: Your Cloudflare Worker domain.
    - `DEV_MODE`: Set to 'true' for development mode to send emails to a company email address.
 4. **Deploy to Cloudflare**: Use `wrangler deploy` to deploy the worker to Cloudflare.
@@ -53,7 +53,7 @@ This link will direct the customer to a page where they can view all past charge
 ## Troubleshooting
 
 - **Check Logs**: Use Cloudflare logs to troubleshoot issues with webhook processing or email sending.
-- **Email Issues**: Verify SMTP settings and ensure the email service is configured correctly.
+- **Email Issues**: Verify Resend API key and ensure the email service is configured correctly.
 - **Stripe Webhook**: Ensure the webhook is correctly set up in Stripe to point to your Cloudflare Worker URL.
 
 ## License
