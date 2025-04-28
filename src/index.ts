@@ -38,24 +38,45 @@ app.post('/api/send-invoice', async (c) => {
   }
 });
 
-// Helper function for rendering HTML with a consistent base template
-const renderHtml = (title: string, content: string, status: 'success' | 'error' = 'success') => `
-  <!DOCTYPE html>
-  <html lang="en">
-    <head>
-      <meta charset="UTF-8">
-      <meta name="viewport" content="width=device-width, initial-scale=1.0">
-      <title>${title}</title>
-      <script src="https://cdn.tailwindcss.com"></script>
-      <link rel="icon" type="image/png" href="https://stripe.com/favicon.ico" />
-    </head>
-    <body class="bg-gray-100 font-sans">
-      <div class="container mx-auto p-4 max-w-4xl">
-        ${content}
-      </div>
-    </body>
-  </html>
-`;
+function getCopyApiExampleScript(cfWorkerDomain: string) {
+  const html = `<script>
+    window.copyApiExample = function(type) {
+      var url = 'https://__CF_WORKER_DOMAIN__/api/send-invoice';
+      var body = JSON.stringify({ customerId: 'your-customer-id', chargeId: 'your-charge-id' }, null, 2);
+      var text = '';
+      if (type === 'curl') {
+        text = \`${`curl -X POST '\${url}' -H 'Content-Type: application/json' -d '\${body.replace(/'/g, "'\\''")}'`}\`;
+      } else {
+        text = \`${`fetch('\${url}', {\n  method: 'POST',\n  headers: { 'Content-Type': 'application/json' },\n  body: JSON.stringify({ customerId: 'your-customer-id', chargeId: 'your-charge-id' })\n})`}\`;
+      }
+      navigator.clipboard.writeText(text);
+      alert('Copied to clipboard');
+    };
+  </script>`;
+  return html.replace(/__CF_WORKER_DOMAIN__/g, cfWorkerDomain)
+}
+
+const renderHtml = (title: string, content: string, cfWorkerDomain: string) => {
+  const html = `
+    <!DOCTYPE html>
+    <html lang="en">
+      <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>${title}</title>
+        <script src="https://cdn.tailwindcss.com"></script>
+        <link rel="icon" type="image/png" href="https://stripe.com/favicon.ico" />
+      </head>
+      <body class="bg-gray-100 font-sans">
+        <div class="container mx-auto p-4 max-w-4xl">
+          ${content}
+        </div>
+        ${getCopyApiExampleScript(cfWorkerDomain)}
+      </body>
+    </html>
+  `;
+  return html;
+};
 
 // Homepage to explain API usage, portal, webhook configuration, and status
 app.get('/', async (c) => {
@@ -74,8 +95,9 @@ app.get('/', async (c) => {
 
     // Check webhook status
     let webhookStatus = 'Unknown';
+    console.log('checking webhook status');
+
     try {
-      console.log('checking webhook status');
       const webhookResponse = await fetch('https://api.stripe.com/v1/webhook_endpoints', {
         headers: {
           'Authorization': `Bearer ${c.env.STRIPE_API_KEY}`,
@@ -86,6 +108,7 @@ app.get('/', async (c) => {
       if (webhookResponse.ok) {
         console.log('webhookResponse.ok');
         const webhookData = await webhookResponse.json() as any;
+        console.log('webhookData', webhookData);
         const webhookUrl = `https://${c.env.CF_WORKER_DOMAIN}/webhook/stripe`;
         const existingWebhook = webhookData.data.find((wh: any) => wh.url === webhookUrl && wh.enabled_events.includes('charge.succeeded'));
         webhookStatus = existingWebhook ? 'Configured' : 'Not Configured';
@@ -98,6 +121,7 @@ app.get('/', async (c) => {
       console.log('error fetching webhook status', error);
       webhookStatus = 'Error fetching webhook status';
     }
+    console.log('webhookcheck done');
 
     // Fetch company info for legal requirements
     let companyInfo = { name: 'Not Set', address: 'Not Set', email: 'Not Set', vat: 'Not Set', brandColor: 'Not Set', logo: 'Not Set', secondaryColor: 'Not Set' };
@@ -168,36 +192,34 @@ app.get('/', async (c) => {
       <div class="bg-white shadow-md rounded-lg p-6 mb-6">
         <h2 class="text-2xl font-semibold mb-4">API Usage</h2>
         <p class="text-gray-700 mb-2">To manually send an invoice, use the following endpoint:</p>
-        <pre class="bg-gray-900 text-white p-4 rounded-md text-sm overflow-auto mb-4">
-          <code>
-<span class="text-pink-400">POST</span> <span class="text-blue-400">https://${c.env.CF_WORKER_DOMAIN}/api/send-invoice</span>
+        <div class="flex items-center mb-2">
+          <span class="font-medium text-gray-700 mr-2">POST Example:</span>
+          <button onclick="copyApiExample('curl')" class="bg-blue-500 hover:bg-blue-700 text-white text-xs font-bold py-1 px-2 rounded mr-2">Copy as cURL</button>
+          <button onclick="copyApiExample('fetch')" class="bg-gray-700 hover:bg-gray-900 text-white text-xs font-bold py-1 px-2 rounded">Copy as fetch</button>
+        </div>
+        <pre class="bg-gray-900 text-white p-4 rounded-md text-sm overflow-auto mb-4" id="api-post-example"><code><span class="text-pink-400">POST</span> <span class="text-blue-400">https://${c.env.CF_WORKER_DOMAIN}/api/send-invoice</span>
 <span class="text-yellow-300">{</span>
   <span class="text-green-400">"customerId"</span>: <span class="text-red-400">"your-customer-id"</span>,
   <span class="text-green-400">"chargeId"</span>: <span class="text-red-400">"your-charge-id"</span>
-<span class="text-yellow-300">}</span>
-          </code>
-        </pre>
-        <p class="text-gray-700 mb-2">Alternatively, use a GET request:</p>
-        <pre class="bg-gray-900 text-white p-4 rounded-md text-sm overflow-auto mb-4">
-          <code><span class="text-pink-400">GET</span> <span class="text-blue-400">https://${c.env.CF_WORKER_DOMAIN}/api/send-invoice?customerId=your-customer-id&chargeId=your-charge-id</span></code>
-        </pre>
+<span class="text-yellow-300">}</span></code></pre>
       </div>
       <div class="bg-white shadow-md rounded-lg p-6 mb-6">
         <h2 class="text-2xl font-semibold mb-4">Customer Billing Portal</h2>
         <p class="text-gray-700 mb-4">Customers can access their billing history and download invoices via a unique URL. Use their Stripe Customer ID and append it to the URL:</p>
-        <pre class="bg-gray-900 text-white p-4 rounded-md text-sm overflow-auto mb-4">
-          <code><span class="text-blue-400">https://${c.env.CF_WORKER_DOMAIN}/billing/&lt;customer-id&gt;</span></code>
-        </pre>
+        <pre class="bg-gray-900 text-white p-4 rounded-md text-sm overflow-auto mb-4"><code><span class="text-blue-400">https://${c.env.CF_WORKER_DOMAIN}/billing/&lt;customer-id&gt;</span></code></pre>
       </div>
       <div class="bg-white shadow-md rounded-lg p-6 mb-6">
         <h2 class="text-2xl font-semibold mb-4">Webhook Configuration</h2>
         <p class="text-gray-700 mb-4">This worker automatically sets up a Stripe webhook to listen for <code>charge.succeeded</code> events. A scheduled task runs every minute to ensure the webhook is configured using the <code>CF_WORKER_DOMAIN</code>.</p>
-        <p class="text-gray-700 mb-4">Webhook URL: <code>https://${c.env.CF_WORKER_DOMAIN}/webhook/stripe</code></p>
-        <p class="text-gray-700 mb-4">Note: Webhook signature verification is not implemented, the only action who can be done is sending an invoice if you have the customerId and chargeId, it's pretty secure.</p>
+        <div class="mb-2">
+          <span class="font-medium text-gray-700">Webhook URL:</span>
+          <pre class="bg-gray-900 text-white p-4 rounded-md text-sm overflow-auto mt-2 mb-2"><code><span class="text-blue-400">https://${c.env.CF_WORKER_DOMAIN}/webhook/stripe</span></code></pre>
+        </div>
+        <p class="text-gray-700 mt-2">Note: Webhook signature verification is <span class="font-semibold text-red-600">not implemented</span>. The only action possible is sending an invoice if you have the <code>customerId</code> and <code>chargeId</code>, which is secure for this use case.</p>
       </div>
     `;
-
-    return c.html(renderHtml('Invoice Sender API', content), isConfigured ? 200 : 503 as any);
+    const html = renderHtml('Invoice Sender API', content, c.env.CF_WORKER_DOMAIN);
+    return c.html(html, isConfigured ? 200 : 503 as any);
   } catch (error) {
     console.error('Error rendering homepage:', error);
     const content = `
@@ -206,7 +228,7 @@ app.get('/', async (c) => {
         <span class="block sm:inline">Internal server error.</span>
       </div>
     `;
-    return c.html(renderHtml('Error - Internal Server Error', content, 'error'), 500 as any);
+    return c.html(renderHtml('Error - Internal Server Error', content, c.env.CF_WORKER_DOMAIN), 500 as any);
   }
 });
 
@@ -233,7 +255,7 @@ app.get('/billing/:customerId', async (c) => {
           <a href="javascript:history.back()" class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded">Go Back</a>
         </div>
       `;
-      return c.html(renderHtml('Error - Customer Data', content, 'error'), 500 as any);
+      return c.html(renderHtml('Error - Customer Data', content, c.env.CF_WORKER_DOMAIN), 500 as any);
     }
 
     const customerData = await customerResponse.json() as any;
@@ -280,7 +302,7 @@ app.get('/billing/:customerId', async (c) => {
       </div>
     `;
 
-    return c.html(renderHtml(`Billing History for ${name}`, content));
+    return c.html(renderHtml(`Billing History for ${name}`, content, c.env.CF_WORKER_DOMAIN));
   } catch (error) {
     console.error('Error rendering billing page:', error);
     const content = `
@@ -292,7 +314,7 @@ app.get('/billing/:customerId', async (c) => {
         <a href="javascript:history.back()" class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded">Go Back</a>
       </div>
     `;
-    return c.html(renderHtml('Error - Internal Server Error', content, 'error'), 500 as any);
+    return c.html(renderHtml('Error - Internal Server Error', content, c.env.CF_WORKER_DOMAIN), 500 as any);
   }
 });
 
