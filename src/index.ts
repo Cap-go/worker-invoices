@@ -11,7 +11,6 @@ const app = new Hono<{
     SMTP_PASSWORD: string; 
     SMTP_FROM: string; 
     SMTP_SECURE: string;
-    INVOICE_DB: KVNamespace; 
     CF_WORKER_DOMAIN: string; 
     DEV_MODE: string 
   }
@@ -406,11 +405,15 @@ async function sendInvoice(c: any, customerId: string, additionalInfo: string, c
   const companyEmail = accountData.business_profile?.support_email || '';
   const companyVat = accountData.business_profile?.tax_id || '';
 
-  // Generate or increment invoice number for this customer using Cloudflare KV
-  const kvKey = `invoice:${customerId}`;
-  let invoiceNumber = parseInt(await c.env.INVOICE_DB.get(kvKey) || '0', 10);
-  invoiceNumber += 1;
-  await c.env.INVOICE_DB.put(kvKey, invoiceNumber.toString());
+  // Generate or increment invoice number for this customer using date and customerId
+  const currentDate = new Date();
+  const datePart = currentDate.getFullYear().toString().slice(-2) + (currentDate.getMonth() + 1).toString().padStart(2, '0') + currentDate.getDate().toString().padStart(2, '0');
+  // Create a simple hash of customerId to a number between 0 and 100000
+  let hash = 0;
+  for (let i = 0; i < customerId.length; i++) {
+    hash = (hash * 31 + customerId.charCodeAt(i)) % 100000;
+  }
+  const invoiceNumber = `${datePart}${hash.toString().padStart(5, '0')}`;
 
   // Check for mandatory legal fields for invoice
   const isDevMode = c.env.DEV_MODE === 'true';
