@@ -2,7 +2,7 @@
 
 This Cloudflare Worker automates the process of sending invoices to customers after a successful charge via Stripe.
 
-[![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/your-repo/invoice-sender)
+[![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/Cap-go/worker-invoices)
 
 ## Overview
 
