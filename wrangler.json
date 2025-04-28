@@ -1,10 +1,13 @@
 {
   "name": "invoice-sender",
   "main": "src/index.ts",
-  "compatibility_date": "2023-10-01",
-  "workers_dev": true,
-  "routes": [
-    { "pattern": "*", "zone": "invoicesender.com" }
+  "compatibility_date": "2025-04-01",
+  "route": {
+    "pattern": "invoices.capgo.app",
+    "custom_domain": true
+  },
+  "compatibility_flags": [
+    "nodejs_compat_v2"
   ],
   "vars": {
     "SMTP_HOST": "",
@@ -16,11 +19,11 @@
     "CF_WORKER_DOMAIN": ""
   },
   "kv_namespaces": [
-    { "binding": "INVOICE_DB", "id": "invoice-db" }
+    { "binding": "INVOICE_DB", "id": "your-kv-namespace-id" }
   ],
   "triggers": {
-    "schedules": [
-      { "cron": "* * * * *" }
+    "crons": [
+      "* * * * *"
     ]
   }
 } 
