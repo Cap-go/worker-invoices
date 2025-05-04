@@ -272,7 +272,7 @@ export async function sendInvoice(c: any, customerId: string, chargeId: string) 
       <head>
         <meta charset="utf-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Receipt from ${companyName}</title>
+        <title>Invoice from ${companyName}</title>
         <style>
           body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
@@ -448,17 +448,17 @@ export async function sendInvoice(c: any, customerId: string, chargeId: string) 
             <div class="content">
               <!-- Receipt Header -->
               <div class="receipt-header">
-                <h2 class="receipt-title">Receipt from ${companyName}</h2>
+                <h2 class="receipt-title">Invoice from ${companyName}</h2>
                 <h1 class="amount">${formattedAmount}</h1>
                 <p class="date">Paid ${chargeDate}</p>
               </div>
               
               <div class="divider"></div>
               
-              <!-- Receipt Information -->
+              <!-- Invoice Information -->
               <table class="info-table">
                 <tr>
-                  <td>Receipt number</td>
+                  <td>Invoice number</td>
                   <td>${receiptNumber}</td>
                 </tr>
                 <tr>
@@ -538,7 +538,7 @@ export async function sendInvoice(c: any, customerId: string, chargeId: string) 
 
   // Send email using nodemailer
   console.log("Sending email to", recipientEmail)
-  await sendEmail(c, c.env.EMAIL_FROM, recipientEmail, `Receipt from ${companyName}`, emailContent, [
+  await sendEmail(c, c.env.EMAIL_FROM, recipientEmail, `Invoice from ${companyName}`, emailContent, [
     {
       filename: `invoice_${invoiceNumber}.pdf`,
       content: pdfBuffer.toString("base64"),
