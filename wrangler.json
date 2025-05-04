@@ -16,14 +16,10 @@
   },
   "upload_source_maps": true,
   "vars": {
-    "SMTP_HOST": "smtp.resend.com",
-    "SMTP_PORT": "587",
-    "SMTP_USERNAME": "resend",
-    "SMTP_SECURE": "true",
-    "SMTP_PASSWORD": "***",
-    "SMTP_FROM": "Capgo <noreply@capgo.app>",
+    "RESEND_API_KEY": "***",
+    "EMAIL_FROM": "Billing [YOUR COMPANY] <noreply@[YOUR COMPANY].app>",
     "STRIPE_API_KEY": "***",
-    "CF_WORKER_DOMAIN": "invoices.capgo.app",
+    "CF_WORKER_DOMAIN": "invoices.[YOUR COMPANY].app",
     "DEV_MODE": "true"
   },
   "triggers": {

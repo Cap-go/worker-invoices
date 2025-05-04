@@ -14,7 +14,7 @@
     "resend": "^3.5.0"
   },
   "devDependencies": {
-    "wrangler": "^4.13.2",
+    "wrangler": "^4.14.1",
     "typescript": "^5.8.3",
     "@types/bun": "latest",
     "@cloudflare/workers-types": "^4.20250428.0"

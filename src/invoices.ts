@@ -1,69 +1,49 @@
-import nodemailer from 'nodemailer';
-import jsPDF from 'jspdf';
 import { sendEmail } from './email';
+import { getCompanyInfo, getSubscriptionInfo, getCustomerData, getChargeData, getFormattedVatNumber, CompanyInfo, CustomerData, SubscriptionInfo, ChargeData, getInvoiceFromCharge } from './stripe';
+import { createInvoicePDF } from './pdf';
+import { maskEmail, renderHtml } from './utils';
 
 // Helper function to send invoice
 export async function sendInvoice(c: any, customerId: string, chargeId: string) {
   // Fetch customer data from Stripe
   console.log('Fetching customer data from Stripe');
-  const stripeResponse = await fetch(`https://api.stripe.com/v1/customers/${customerId}`, {
-    headers: {
-      'Authorization': `Bearer ${c.env.STRIPE_API_KEY}`,
-      'Content-Type': 'application/json',
-    },
-  });
-
-  if (!stripeResponse.ok) {
-    console.log('Failed to fetch customer data from Stripe');
-    return c.json({ error: 'Failed to fetch customer data from Stripe' }, stripeResponse.status as any);
-  }
-
-  const customerData = await stripeResponse.json() as any;
-  const email = customerData.email;
+  const customerData = await getCustomerData(c, customerId);
+  const email = customerData.email || '';
   const name = customerData.name || 'Customer';
 
   // Fetch specific charge for the customer
   console.log('Fetching charge data from Stripe');
-  const chargesResponse = await fetch(`https://api.stripe.com/v1/charges/${chargeId}`, {
-    headers: {
-      'Authorization': `Bearer ${c.env.STRIPE_API_KEY}`,
-      'Content-Type': 'application/json',
-    },
-  });
-
-  if (!chargesResponse.ok) {
-    console.log('Failed to fetch charge data from Stripe');
-    return c.json({ error: 'Failed to fetch charge data from Stripe' }, chargesResponse.status as any);
-  }
-
-  const chargeData = await chargesResponse.json() as any;
+  const chargeData = await getChargeData(c, chargeId);
   const chargeAmount = chargeData.amount ? chargeData.amount / 100 : 'N/A';
   const chargeDate = chargeData.created ? new Date(chargeData.created * 1000).toLocaleDateString() : 'N/A';
+  
+  // Fetch subscription information if available
+  const subscriptionInfo = await getSubscriptionInfo(c, customerId, chargeId);
+  
+  // Fetch company info for branding and legal information
+  const companyInfo = await getCompanyInfo(c);
+  
+  // Get the needed data from companyInfo
+  const logoUrl = companyInfo.logo;
+  const brandColor = companyInfo.brandColor;
+  const secondaryColor = companyInfo.secondaryColor;
+  const companyName = companyInfo.name;
+  const companyAddress = companyInfo.address;
+  const companyEmail = companyInfo.email;
+  const formattedVat = companyInfo.vatId;
 
-  // Fetch Stripe account data for branding (logo and color) and company info
-  console.log('Fetching Stripe account data');
-  const accountResponse = await fetch('https://api.stripe.com/v1/account', {
-    headers: {
-      'Authorization': `Bearer ${c.env.STRIPE_API_KEY}`,
-      'Content-Type': 'application/json',
-    },
-  });
+  // Get the actual VAT number from the tax ID object
+  let formattedVatNumber = await getFormattedVatNumber(c, formattedVat);
 
-  if (!accountResponse.ok) {
-    console.log('Failed to fetch Stripe account data');
-    return c.json({ error: 'Failed to fetch Stripe account data' }, 500 as any);
-  }
-
-  const accountData = await accountResponse.json() as any;
-  console.log('Stripe account data fetched successfully');
-  const logoUrl = accountData.settings.branding.logo || '';
-  const brandColor = accountData.settings.branding.primary_color || '#5562eb';
-  const secondaryColor = accountData.settings.branding.secondary_color || '#f6f9fc';
-  const companyName = accountData.business_profile?.name || '';
-  const companyAddress = accountData.settings.dashboard?.display_name ? `${accountData.settings.dashboard.display_name}, ${accountData.country || ''}` : '';
-  const companyEmail = accountData.business_profile?.support_email || '';
-  const companyVat = accountData.settings.invoices?.default_account_tax_ids?.length > 0 ? accountData.settings.invoices.default_account_tax_ids[0] : '';
-
+  console.log('logoUrl', logoUrl);
+  console.log('brandColor', brandColor);
+  console.log('secondaryColor', secondaryColor);
+  console.log('companyName', companyName);
+  console.log('companyAddress', companyAddress);
+  console.log('companyEmail', companyEmail);
+  console.log('companyVat', formattedVatNumber);
+  console.log('c.env.EMAIL_FROM', c.env.EMAIL_FROM);
+  console.log('c.env.DEV_MODE', c.env.DEV_MODE);
   // Generate or increment invoice number for this customer using date and customerId
   const currentDate = new Date();
   const datePart = currentDate.getFullYear().toString().slice(-2) + (currentDate.getMonth() + 1).toString().padStart(2, '0') + currentDate.getDate().toString().padStart(2, '0');
@@ -76,8 +56,8 @@ export async function sendInvoice(c: any, customerId: string, chargeId: string) 
 
   // Check for mandatory legal fields for invoice
   const isDevMode = c.env.DEV_MODE === 'true';
-  const mandatoryFieldsMissing = !companyName || !companyAddress || !companyEmail || !companyVat;
-  const recipientEmail = isDevMode ? email : companyEmail;
+  const mandatoryFieldsMissing = !companyName || !companyAddress || !companyEmail || !formattedVatNumber;
+  const recipientEmail = isDevMode ? 'martindonadieu@gmail.com'  : email;
 
   if (mandatoryFieldsMissing && !companyEmail) {
     console.log('Mandatory legal fields for invoice are missing and no company email available to notify.');
@@ -90,26 +70,147 @@ export async function sendInvoice(c: any, customerId: string, chargeId: string) 
     if (!companyName) missingFields.push('Company Name');
     if (!companyAddress) missingFields.push('Company Address');
     if (!companyEmail) missingFields.push('Company Email');
-    if (!companyVat) missingFields.push('VAT ID');
+    if (!formattedVatNumber) missingFields.push('VAT ID');
     const webhookUrlGet = `https://${c.env.CF_WORKER_DOMAIN}/api/send-invoice?customerId=${customerId}&chargeId=${chargeId}`;
     const webhookUrlPost = `https://${c.env.CF_WORKER_DOMAIN}/api/send-invoice`;
     const notificationContent = `
       <html>
-        <body style="color: ${brandColor};">
-          <h1>Invoice Generation Issue for #${invoiceNumber}</h1>
-          <p>Mandatory legal information is missing for generating a valid invoice.</p>
-          <p>The following fields are missing: ${missingFields.join(', ')}.</p>
-          <p>Please update your Stripe account with the required business information.</p>
-          <p>Once updated, you can resend the invoice by making a GET request to the following URL:</p>
-          <pre>${webhookUrlGet}</pre>
-          <p>Alternatively, you can use a POST request to the following URL with the JSON body:</p>
-          <pre>URL: ${webhookUrlPost}</pre>
-          <pre>
-{
-  "customerId": "${customerId}",
-  "chargeId": "${chargeId}"
-}
-          </pre>
+        <head>
+          <style>
+            :root {
+              --primary: ${brandColor};
+              --secondary: ${secondaryColor};
+              --text: #1f2937;
+              --text-light: #6b7280;
+              --border: #e5e7eb;
+              --danger: #ef4444;
+            }
+            body {
+              font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+              color: var(--text);
+              background-color: var(--secondary);
+              margin: 0;
+              padding: 20px;
+              line-height: 1.5;
+            }
+            .container {
+              max-width: 600px;
+              margin: 0 auto;
+              background-color: white;
+              border-radius: 8px;
+              overflow: hidden;
+              box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+            }
+            .header {
+              padding: 20px;
+              background-color: var(--danger);
+              color: white;
+            }
+            .content {
+              padding: 30px 20px;
+            }
+            .logo {
+              max-width: 200px;
+              margin-bottom: 10px;
+            }
+            h1 {
+              font-size: 24px;
+              margin: 0 0 20px;
+              color: var(--danger);
+            }
+            p {
+              margin: 0 0 15px;
+            }
+            .alert {
+              background-color: rgba(239, 68, 68, 0.1);
+              border-left: 4px solid var(--danger);
+              padding: 15px;
+              margin-bottom: 20px;
+              border-radius: 4px;
+            }
+            ul {
+              margin: 10px 0;
+              padding-left: 20px;
+            }
+            li {
+              margin-bottom: 5px;
+            }
+            pre {
+              background-color: #f3f4f6;
+              padding: 15px;
+              border-radius: 4px;
+              overflow-x: auto;
+              margin: 15px 0;
+              font-family: monospace;
+              font-size: 14px;
+            }
+            .code-block {
+              background-color: #1f2937;
+              color: white;
+              padding: 15px;
+              border-radius: 4px;
+              overflow-x: auto;
+              margin: 15px 0;
+              font-family: monospace;
+              font-size: 14px;
+            }
+            .btn {
+              display: inline-block;
+              background-color: var(--primary);
+              color: white !important;
+              text-decoration: none;
+              padding: 10px 20px;
+              border-radius: 4px;
+              font-weight: 500;
+              margin: 15px 0;
+            }
+            .footer {
+              padding: 20px;
+              text-align: center;
+              font-size: 12px;
+              color: var(--text-light);
+              border-top: 1px solid var(--border);
+            }
+          </style>
+        </head>
+        <body>
+          <div class="container">
+            <div class="header">
+              <h2>Invoice Generation Issue</h2>
+              ${formattedVatNumber ? `<div style="margin-top: 5px; font-size: 12px;">VAT: ${formattedVatNumber}</div>` : ''}
+            </div>
+            <div class="content">
+              <h1>Invoice Generation Issue for #${invoiceNumber}</h1>
+              <div class="alert">
+                <p>Mandatory legal information is missing for generating a valid invoice.</p>
+              </div>
+              <p>The following fields are missing:</p>
+              <ul>
+                ${missingFields.map(field => `<li>${field}</li>`).join('')}
+              </ul>
+              <p>Please update your Stripe account with the required business information.</p>
+              <p>Once updated, you can resend the invoice using one of the following methods:</p>
+              
+              <h3>Method 1: GET Request</h3>
+              <div class="code-block">${webhookUrlGet}</div>
+              
+              <h3>Method 2: POST Request</h3>
+              <div class="code-block">
+              URL: ${webhookUrlPost}
+              
+              Payload:
+              {
+                "customerId": "${customerId}",
+                "chargeId": "${chargeId}"
+              }
+              </div>
+              
+              <p>Update your Stripe account settings at <a href="https://dashboard.stripe.com/settings/account">https://dashboard.stripe.com/settings/account</a></p>
+            </div>
+            <div class="footer">
+              <p>Invoice Sender API</p>
+            </div>
+          </div>
         </body>
       </html>
     `;
@@ -122,117 +223,161 @@ export async function sendInvoice(c: any, customerId: string, chargeId: string) 
   const billingUrl = `https://${c.env.CF_WORKER_DOMAIN}/billing/${customerId}`;
   const emailContent = `
     <html>
-      <body style="color: ${brandColor}; background-color: ${secondaryColor}; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; margin: 0; padding: 20px;">
-        <div style="max-width: 600px; margin: 0 auto; background-color: #ffffff; padding: 30px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);">
-          <img src="${logoUrl}" alt="Brand Logo" style="max-width: 200px; margin-bottom: 20px;" />
-          <h1 style="font-size: 24px; font-weight: bold; margin-bottom: 10px;">Invoice #${invoiceNumber} for ${name}</h1>
-          <p style="margin-bottom: 10px;">Email: ${email}</p>
-          <p style="margin-bottom: 10px;">Charge: $${chargeAmount} on ${chargeDate}</p>
-          <p style="margin-bottom: 10px;">Charge ID: ${chargeId}</p>
-          <p style="margin-bottom: 20px;">Download your invoice PDF from the attached link.</p>
-          <p style="margin-bottom: 10px;">View all your billing history <a href="${billingUrl}" style="color: ${brandColor}; text-decoration: underline;">here</a>.</p>
-          <p>Need to update your billing information? <a href="https://billing.stripe.com/p/login/customer/${customerId}" style="color: ${brandColor}; text-decoration: underline;">Manage your billing details here</a>.</p>
+      <head>
+        <style>
+          :root {
+            --primary: ${brandColor};
+            --secondary: ${secondaryColor};
+            --text: #1f2937;
+            --text-light: #6b7280;
+            --border: #e5e7eb;
+          }
+          body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+            color: var(--text);
+            background-color: var(--secondary);
+            margin: 0;
+            padding: 20px;
+            line-height: 1.5;
+          }
+          .container {
+            max-width: 600px;
+            margin: 0 auto;
+            background-color: white;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+          }
+          .header {
+            padding: 20px;
+            background-color: var(--primary);
+            color: white;
+          }
+          .content {
+            padding: 30px 20px;
+          }
+          .logo {
+            max-width: 200px;
+            margin-bottom: 10px;
+          }
+          h1 {
+            font-size: 24px;
+            margin: 0 0 20px;
+            color: var(--primary);
+          }
+          .invoice-details {
+            margin-bottom: 20px;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 15px;
+          }
+          .detail-row {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 8px;
+            padding-bottom: 8px;
+            border-bottom: 1px solid var(--border);
+          }
+          .detail-row:last-child {
+            border-bottom: none;
+            margin-bottom: 0;
+            padding-bottom: 0;
+          }
+          .detail-label {
+            font-weight: 500;
+            color: var(--text-light);
+          }
+          .detail-value {
+            font-weight: 600;
+          }
+          p {
+            margin: 0 0 15px;
+          }
+          .btn {
+            display: inline-block;
+            background-color: var(--primary);
+            color: white !important;
+            text-decoration: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            font-weight: 500;
+            margin: 15px 0;
+          }
+          .footer {
+            padding: 20px;
+            text-align: center;
+            font-size: 12px;
+            color: var(--text-light);
+            border-top: 1px solid var(--border);
+          }
+          a {
+            color: var(--primary);
+            text-decoration: none;
+          }
+          a:hover {
+            text-decoration: underline;
+          }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <div class="header">
+            ${logoUrl ? `<img src="${logoUrl}" alt="${companyName} Logo" class="logo">` : `<h2>${companyName}</h2>`}
+            ${formattedVatNumber ? `<div style="margin-top: 5px; font-size: 12px;">VAT: ${formattedVatNumber}</div>` : ''}
+          </div>
+          <div class="content">
+            <h1>Invoice #${invoiceNumber}</h1>
+            
+            <div class="invoice-details">
+              <div class="detail-row">
+                <span class="detail-label">Customer:</span>
+                <span class="detail-value">${name}</span>
+              </div>
+              <div class="detail-row">
+                <span class="detail-label">Email:</span>
+                <span class="detail-value">${maskEmail(email)}</span>
+              </div>
+              <div class="detail-row">
+                <span class="detail-label">Date:</span>
+                <span class="detail-value">${chargeDate}</span>
+              </div>
+              <div class="detail-row">
+                <span class="detail-label">Amount:</span>
+                <span class="detail-value">$${chargeAmount}</span>
+              </div>
+              ${subscriptionInfo ? `
+              <div class="detail-row">
+                <span class="detail-label">Subscription:</span>
+                <span class="detail-value">${subscriptionInfo.planName}</span>
+              </div>
+              <div class="detail-row">
+                <span class="detail-label">Billing Period:</span>
+                <span class="detail-value">${subscriptionInfo.interval.charAt(0).toUpperCase() + subscriptionInfo.interval.slice(1)}ly</span>
+              </div>
+              <div class="detail-row">
+                <span class="detail-label">Plan Amount:</span>
+                <span class="detail-value">$${subscriptionInfo.amount}/${subscriptionInfo.interval}</span>
+              </div>
+              ` : ''}
+            </div>
+            
+            <p>Your invoice has been generated and is attached to this email as a PDF.</p>
+            
+            <p><a href="${billingUrl}" class="btn">View All Billing History</a></p>
+            
+            <p>Need to update your billing information? <a href="https://billing.stripe.com/p/login/customer/${customerId}">Manage your billing details here</a>.</p>
+          </div>
+          <div class="footer">
+            <p>© ${new Date().getFullYear()} ${companyName}. All rights reserved.</p>
+          </div>
         </div>
       </body>
     </html>
   `;
 
   console.log('Generating PDF using jsPDF');
-  // Generate PDF using jsPDF with Stripe-like styling
-  const doc = new jsPDF({
-    orientation: 'p',
-    format: 'a4'
-  });
-
-  const pageWidth = doc.internal.pageSize.width;
-
-  const invoiceDate = new Date();
-  const dateToday = (invoiceDate.getMonth() + 1) + '/' + invoiceDate.getDate() + '/' + invoiceDate.getFullYear();
-
-  const setFontType = (val: string) => {
-    doc.setFont('helvetica', val);
-  };
-
-  const docText = (x: number, y: number, text: string) => {
-    if (x > 0) return doc.text(text, x, y);
-    return doc.text(text, pageWidth + x, y, { align: 'right' });
-  };
-
-  // Set background color for header
-  doc.setFillColor(secondaryColor);
-  doc.rect(0, 0, pageWidth, 40, 'F');
-
-  // Set brand color for text
-  doc.setTextColor(brandColor);
-
-  doc.setFont('helvetica');
-  setFontType('bold');
-  doc.setFontSize(18);
-  if (companyName) {
-    docText(20, 20, companyName);
-  }
-  docText(-20, 20, `Invoice #${invoiceNumber}`);
-
-  setFontType('normal');
-  doc.setFontSize(10);
-  doc.setLineHeightFactor(1.3);
-  if (companyAddress) {
-    docText(20, 26, companyAddress.split(', ')[0] || '');
-    if (companyAddress.split(', ')[1]) {
-      docText(20, 32, companyAddress.split(', ')[1]);
-    }
-  }
-  if (companyVat) {
-    docText(20, companyAddress && companyAddress.split(', ')[1] ? 38 : companyAddress ? 32 : 26, `VAT ID: ${companyVat}`);
-  }
-  if (companyEmail) {
-    docText(20, companyVat ? (companyAddress && companyAddress.split(', ')[1] ? 44 : companyAddress ? 38 : 32) : (companyAddress && companyAddress.split(', ')[1] ? 38 : companyAddress ? 32 : 26), `Email: ${companyEmail}`);
-  }
-  docText(-20, 26, `Date: ${dateToday}`);
-
-  // Reset text color to black for body content
-  doc.setTextColor(0, 0, 0);
-
-  if (name) {
-    docText(20, 50, name);
-  }
-  if (customerData.address?.line1) {
-    docText(20, 56, customerData.address.line1);
-  }
-  if (customerData.address?.city || customerData.address?.state || customerData.address?.postal_code) {
-    docText(20, customerData.address?.line1 ? 62 : 56, `${customerData.address?.city || ''}${customerData.address?.city && customerData.address?.state ? ', ' : ''}${customerData.address?.state || ''} ${customerData.address?.postal_code || ''}`);
-  }
-  if (customerData.address?.country) {
-    docText(20, (customerData.address?.city || customerData.address?.state || customerData.address?.postal_code) ? (customerData.address?.line1 ? 68 : 62) : (customerData.address?.line1 ? 62 : 56), customerData.address.country);
-  }
-  docText(20, customerData.address?.country ? ((customerData.address?.city || customerData.address?.state || customerData.address?.postal_code) ? (customerData.address?.line1 ? 74 : 68) : (customerData.address?.line1 ? 68 : 62)) : ((customerData.address?.city || customerData.address?.state || customerData.address?.postal_code) ? (customerData.address?.line1 ? 68 : 62) : (customerData.address?.line1 ? 62 : 56)), `Email: ${email}`);
-
-  // Table header with brand color background
-  doc.setFillColor(brandColor);
-  doc.rect(20, 85, pageWidth - 40, 10, 'F');
-  doc.setTextColor(255, 255, 255); // White text for header
-  setFontType('bold');
-  docText(25, 91, 'Description');
-  docText(-25, 91, 'Amount');
-
-  // Reset text color for table content
-  doc.setTextColor(0, 0, 0);
-  doc.setLineWidth(0.1);
-  doc.line(20, 95, pageWidth - 20, 95);
-
-  setFontType('normal');
-  docText(25, 101, `Payment for Charge ID ${chargeId}`);
-  docText(25, 107, `Date: ${chargeDate}`);
-  docText(-25, 101, `$${chargeAmount}`);
-
-  // Total row with light background
-  doc.setFillColor(secondaryColor);
-  doc.rect(20, 115, pageWidth - 40, 10, 'F');
-  setFontType('bold');
-  docText(-25, 121, `Total: $${chargeAmount}`);
-
-  const pdfBuffer = Buffer.from(doc.output('arraybuffer'));
-  console.log('PDF generated successfully with jsPDF');
+  // Use the createInvoicePDF function from pdf.ts
+  const pdfBuffer = await createInvoicePDF(companyInfo, { name: name, email: email }, invoiceNumber, chargeData, subscriptionInfo);
 
   // Send email using nodemailer
   console.log('Sending email to', recipientEmail);
