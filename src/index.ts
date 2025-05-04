@@ -29,7 +29,11 @@ app.post('/api/send-invoice', async (c) => {
       return c.json({ error: 'Charge ID is required' }, 400 as any);
     }
 
-    return await sendInvoice(c, customerId, chargeId);
+    c.executionCtx.waitUntil(
+      sendInvoice(c, customerId, chargeId)
+    )
+
+    return c.json({ message: 'Invoice sent successfully' }, 200 as any);
   } catch (error) {
     console.error('Error processing manual invoice:', error);
     return c.json({ error: 'Internal server error' }, 500 as any);
@@ -59,7 +63,11 @@ app.post('/webhook/stripe', async (c) => {
       const chargeId = charge.id;
       
       if (customerId && chargeId) {
-        return await sendInvoice(c, customerId, chargeId);
+        c.executionCtx.waitUntil(
+          sendInvoice(c, customerId, chargeId)
+        )
+
+        return c.json({ message: 'Invoice sent successfully' }, 200 as any);
       } else {
         console.log('No customer ID or charge ID found in charge:', charge.id);
         return c.json({ message: 'No customer ID or charge ID found' }, 200 as any);

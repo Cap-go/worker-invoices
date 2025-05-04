@@ -539,8 +539,7 @@ export async function sendInvoice(c: any, customerId: string, chargeId: string) 
   ])
 
   console.log(`Email sent to ${recipientEmail} with invoice #${invoiceNumber}`)
-
-  return c.json({ message: "Invoice sent successfully", invoiceNumber })
+  return 
 }
 
 // Add function to format date in words
