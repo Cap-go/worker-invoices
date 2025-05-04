@@ -49,7 +49,7 @@ export const billing = async (c: any) => {
             <div class="user-name">${name}</div>
             ${email ? `<div class="company-meta">${maskEmail(email)}</div>` : ''}
             ${subscriptionInfo ? 
-              `<div class="subscription-info">${subscriptionInfo.planName} • ${subscriptionInfo.interval.charAt(0).toUpperCase() + subscriptionInfo.interval.slice(1)}ly • $${subscriptionInfo.amount}/${subscriptionInfo.interval}</div>` : ''
+              `<div class="subscription-info">${subscriptionInfo.planName} • ${subscriptionInfo.interval.charAt(0).toUpperCase() + subscriptionInfo.interval.slice(1)}ly • ${subscriptionInfo.price_string}/${subscriptionInfo.interval}</div>` : ''
             }
           </div>
           <form id="billingLinkForm" onsubmit="event.preventDefault(); sendFormRequest('billingLinkForm', '/api/request-billing-link?customerId=${customerId}', 'Billing link sent to your email', 'Failed to send billing link');">
@@ -67,13 +67,13 @@ export const billing = async (c: any) => {
             </tr>
           </thead>
           <tbody>
-            ${charges.length > 0 ? charges.map((charge: any) => `
+            ${charges.length > 0 ? charges.map((charge) => `
               <tr>
                 <td>${charge.created ? new Date(charge.created * 1000).toLocaleDateString() : 'N/A'}</td>
-                <td class="amount">$${charge.amount ? (charge.amount / 100).toFixed(2) : 'N/A'}</td>
+                <td class="amount">${charge.price_string}</td>
                 <td><span class="status-badge status-paid">Paid</span></td>
                 <td>
-                  <form id="invoiceForm-${charge.id}" onsubmit="event.preventDefault(); sendFormRequest('invoiceForm-${charge.id}', '/api/send-invoice?customerId=${customerId}&chargeId=${charge.id}', 'Invoice sent to your email', 'Failed to send invoice');">
+                  <form id="invoiceForm-${charge.id}" onsubmit="event.preventDefault(); sendFormRequest('invoiceForm-${charge.id}', '/api/send-invoice?customerId=${customerId}&chargeId=${charge.id}', 'Invoice sent to your email', 'Failed to send invoice', 'POST');">
                     <button type="submit" class="action-link">Send Invoice</button>
                   </form>
                 </td>

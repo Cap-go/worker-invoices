@@ -1,7 +1,7 @@
 import { sendEmail } from './email';
-import { getCompanyInfo, getSubscriptionInfo, getCustomerData, getChargeData, getFormattedVatNumber, CompanyInfo, CustomerData, SubscriptionInfo, ChargeData, getInvoiceFromCharge } from './stripe';
+import { getCompanyInfo, getSubscriptionInfo, getCustomerData, getChargeData, getFormattedVatNumber } from './stripe';
 import { createInvoicePDF } from './pdf';
-import { maskEmail, renderHtml } from './utils';
+import { maskEmail } from './utils';
 
 // Helper function to send invoice
 export async function sendInvoice(c: any, customerId: string, chargeId: string) {
@@ -14,7 +14,6 @@ export async function sendInvoice(c: any, customerId: string, chargeId: string) 
   // Fetch specific charge for the customer
   console.log('Fetching charge data from Stripe');
   const chargeData = await getChargeData(c, chargeId);
-  const chargeAmount = chargeData.amount ? chargeData.amount / 100 : 'N/A';
   const chargeDate = chargeData.created ? new Date(chargeData.created * 1000).toLocaleDateString() : 'N/A';
   
   // Fetch subscription information if available
@@ -343,7 +342,7 @@ export async function sendInvoice(c: any, customerId: string, chargeId: string) 
               </div>
               <div class="detail-row">
                 <span class="detail-label">Amount:</span>
-                <span class="detail-value">$${chargeAmount}</span>
+                <span class="detail-value">${chargeData.price_string}</span>
               </div>
               ${subscriptionInfo ? `
               <div class="detail-row">
@@ -356,7 +355,7 @@ export async function sendInvoice(c: any, customerId: string, chargeId: string) 
               </div>
               <div class="detail-row">
                 <span class="detail-label">Plan Amount:</span>
-                <span class="detail-value">$${subscriptionInfo.amount}/${subscriptionInfo.interval}</span>
+                <span class="detail-value">${subscriptionInfo.price_string}/${subscriptionInfo.interval}</span>
               </div>
               ` : ''}
             </div>

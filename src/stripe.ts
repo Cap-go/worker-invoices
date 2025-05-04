@@ -22,6 +22,7 @@ export interface CompanyInfo {
  */
 export interface CustomerAddress {
   line1?: string;
+  line2?: string;
   city?: string;
   state?: string;
   postal_code?: string;
@@ -42,6 +43,16 @@ export interface CustomerData {
  */
 export interface ChargeData {
   amount: number;
+  price_string: string;
+  currency: string;
+  description: string;
+  payment_method_details: {
+    type: string;
+    card: {
+      brand: string;
+      last4: string;
+    };
+  };
   created: number;
   id: string;
 }
@@ -53,8 +64,10 @@ export interface SubscriptionInfo {
   id: string;
   planName: string;
   interval: string;
-  amount: string;
+  amount: number;
+  price_string: string;
   currency: string;
+  details: string;
 }
 
 /**
@@ -63,7 +76,7 @@ export interface SubscriptionInfo {
  * @param customerId The ID of the customer to fetch
  * @returns Customer data with name and email
  */
-export async function getCustomerData(c: any, customerId: string): Promise<any> {
+export async function getCustomerData(c: any, customerId: string): Promise<CustomerData> {
   const customerResponse = await fetch(`https://api.stripe.com/v1/customers/${customerId}`, {
     headers: {
       'Authorization': `Bearer ${c.env.STRIPE_API_KEY}`,
@@ -75,7 +88,13 @@ export async function getCustomerData(c: any, customerId: string): Promise<any> 
     throw new Error('Failed to fetch customer data');
   }
 
-  return await customerResponse.json();
+  const customerRawData = await customerResponse.json() as any;
+  const customerData: CustomerData = {
+    name: customerRawData.name,
+    email: customerRawData.email,
+    address: customerRawData.address,
+  }
+  return customerData;
 }
 
 /**
@@ -109,7 +128,7 @@ export async function getCompanyInfo(c: any): Promise<CompanyInfo> {
       
       companyInfo.name = accountData.business_profile?.name || 'Not Set';
       companyInfo.address = (accountData.business_profile?.support_address && accountData.country) ? 
-        `${accountData.business_profile.support_address.line1}, ${accountData.business_profile.support_address.city}, ${accountData.business_profile.support_address.postal_code}, ${getCountryName(accountData.business_profile.support_address.country)}` : 'Not Set';
+        `${accountData.business_profile.support_address.line1}, ${accountData.business_profile.support_address.line2}, ${accountData.business_profile.support_address.city}, ${accountData.business_profile.support_address.postal_code}, ${getCountryName(accountData.business_profile.support_address.country)}` : 'Not Set';
       companyInfo.email = accountData.business_profile?.support_email || 'Not Set';
       companyInfo.brandColor = accountData.settings?.branding?.primary_color || '#4f46e5';
       companyInfo.secondaryColor = accountData.settings?.branding?.secondary_color || '#f3f4f6';
@@ -243,37 +262,8 @@ export async function getLogoUrl(c: any, fileId: string): Promise<string> {
  */
 export async function getSubscriptionInfo(c: any, customerId: string, chargeId?: string): Promise<SubscriptionInfo | null> {
   try {
-    // If we have a charge ID, try to get subscription from invoice first
-    if (chargeId) {
-      const chargeResponse = await fetch(`https://api.stripe.com/v1/charges/${chargeId}`, {
-        headers: {
-          'Authorization': `Bearer ${c.env.STRIPE_API_KEY}`,
-          'Content-Type': 'application/json',
-        },
-      });
-      
-      if (chargeResponse.ok) {
-        const chargeData = await chargeResponse.json() as any;
-        if (chargeData.invoice) {
-          const invoiceResponse = await fetch(`https://api.stripe.com/v1/invoices/${chargeData.invoice}`, {
-            headers: {
-              'Authorization': `Bearer ${c.env.STRIPE_API_KEY}`,
-              'Content-Type': 'application/json',
-            },
-          });
-          
-          if (invoiceResponse.ok) {
-            const invoiceData = await invoiceResponse.json() as any;
-            if (invoiceData.subscription) {
-              return await getSubscriptionDetailsFromId(c, invoiceData.subscription);
-            }
-          }
-        }
-      }
-    }
-    
-    // Otherwise, get the active subscription directly
-    const subscriptionResponse = await fetch(`https://api.stripe.com/v1/subscriptions?customer=${customerId}&status=active&limit=1`, {
+    // Query active subscriptions for the customer
+    const subscriptionResponse = await fetch(`https://api.stripe.com/v1/subscriptions?customer=${customerId}&status=active&limit=5`, {
       headers: {
         'Authorization': `Bearer ${c.env.STRIPE_API_KEY}`,
         'Content-Type': 'application/json',
@@ -283,6 +273,31 @@ export async function getSubscriptionInfo(c: any, customerId: string, chargeId?:
     if (subscriptionResponse.ok) {
       const subscriptionData = await subscriptionResponse.json() as any;
       if (subscriptionData.data && subscriptionData.data.length > 0) {
+        // If chargeId is provided, try to match subscription by date
+        if (chargeId) {
+          const chargeResponse = await fetch(`https://api.stripe.com/v1/charges/${chargeId}`, {
+            headers: {
+              'Authorization': `Bearer ${c.env.STRIPE_API_KEY}`,
+              'Content-Type': 'application/json',
+            },
+          });
+          
+          if (chargeResponse.ok) {
+            const chargeData = await chargeResponse.json() as any;
+            const chargeDate = chargeData.created ? new Date(chargeData.created * 1000) : null;
+            if (chargeDate) {
+              // Find a subscription where the charge date falls within the subscription's billing cycle or start date
+              for (const subscription of subscriptionData.data) {
+                const subStartDate = subscription.start_date ? new Date(subscription.start_date * 1000) : null;
+                const subEndDate = subscription.current_period_end ? new Date(subscription.current_period_end * 1000) : null;
+                if (subStartDate && subEndDate && chargeDate >= subStartDate && chargeDate <= subEndDate) {
+                  return await getSubscriptionDetailsFromId(c, subscription.id);
+                }
+              }
+            }
+          }
+        }
+        // If no match found or no chargeId, return the first active subscription
         const subscription = subscriptionData.data[0];
         return await getSubscriptionDetailsFromId(c, subscription.id);
       }
@@ -337,8 +352,10 @@ async function getSubscriptionDetailsFromId(c: any, subscriptionId: string): Pro
               id: subscriptionId,
               planName: productData.name || 'Unknown Plan',
               interval: priceData.recurring?.interval || 'month',
-              amount: (priceData.unit_amount / 100).toFixed(2),
-              currency: priceData.currency || 'usd'
+              amount: Number((priceData.unit_amount / 100).toFixed(2)),
+              price_string: formatCurrency(priceData.unit_amount, priceData.currency),
+              currency: priceData.currency || 'usd',
+              details: productData.description || 'Subscription Plan'
             };
           }
         }
@@ -415,7 +432,7 @@ function getCountryName(countryCode: string): string {
  * @param customerId The ID of the customer to fetch charges for
  * @returns Array of charge objects
  */
-export async function getCustomerCharges(c: any, customerId: string): Promise<Array<{ id: string; amount?: number; created?: number }>> {
+export async function getCustomerCharges(c: any, customerId: string): Promise<Array<ChargeData>> {
   const chargesResponse = await fetch(`https://api.stripe.com/v1/charges?customer=${customerId}&limit=100`, {
     headers: {
       'Authorization': `Bearer ${c.env.STRIPE_API_KEY}`,
@@ -427,8 +444,19 @@ export async function getCustomerCharges(c: any, customerId: string): Promise<Ar
     throw new Error('Failed to fetch charges data');
   }
 
-  const chargesData = await chargesResponse.json() as { data: Array<{ id: string; amount?: number; created?: number }> };
-  return chargesData.data || [];
+  const chargesRawData = await chargesResponse.json() as any;
+  const chargesData = chargesRawData.data.map((charge: any) => {
+    return {
+      id: charge.id,
+      amount: charge.amount,
+      created: charge.created,
+      price_string: formatCurrency(charge.amount, charge.currency),
+      currency: charge.currency,
+      description: charge.description,
+      payment_method_details: charge.payment_method_details,
+    } as ChargeData
+  })
+  return chargesData || [];
 }
 
 /**
@@ -449,7 +477,17 @@ export async function getChargeData(c: any, chargeId: string): Promise<ChargeDat
     throw new Error('Failed to fetch charge data');
   }
 
-  return await chargeResponse.json() as ChargeData;
+  const chargeRawData = await chargeResponse.json() as ChargeData; 
+  const chargeData = {
+    amount: chargeRawData.amount,
+    price_string: formatCurrency(chargeRawData.amount, chargeRawData.currency),
+    currency: chargeRawData.currency,
+    description: chargeRawData.description,
+    payment_method_details: chargeRawData.payment_method_details,
+    created: chargeRawData.created,
+    id: chargeRawData.id,
+  }
+  return chargeData;
 }
 
 /**
@@ -571,36 +609,53 @@ export async function getAccountInfo(c: any): Promise<any> {
   return await accountResponse.json();
 }
 
+export const formatCurrency = (amount: number, currency = "usd") => {
+  const currencySymbol = getCurrencySymbol(currency)
+  return `${currencySymbol}${(amount / 100).toFixed(2)}`
+}
+
 /**
- * Fetches invoice data for a specific charge
- * @param c The context object containing environment variables
- * @param chargeId The ID of the charge to fetch invoice for
- * @returns Invoice data if available, null otherwise
+ * Converts a Stripe currency code to its real currency symbol
+ * @param currencyCode The Stripe currency code (e.g., 'usd', 'eur')
+ * @returns The corresponding currency symbol (e.g., '$', '€')
  */
-export async function getInvoiceFromCharge(c: any, chargeId: string): Promise<any | null> {
-  const chargeResponse = await fetch(`https://api.stripe.com/v1/charges/${chargeId}`, {
-    headers: {
-      'Authorization': `Bearer ${c.env.STRIPE_API_KEY}`,
-      'Content-Type': 'application/json',
-    },
-  });
-
-  if (!chargeResponse.ok) {
-    throw new Error('Failed to fetch charge data for invoice');
-  }
-
-  const chargeData = await chargeResponse.json() as any;
-  if (chargeData.invoice) {
-    const invoiceResponse = await fetch(`https://api.stripe.com/v1/invoices/${chargeData.invoice}`, {
-      headers: {
-        'Authorization': `Bearer ${c.env.STRIPE_API_KEY}`,
-        'Content-Type': 'application/json',
-      },
-    });
-
-    if (invoiceResponse.ok) {
-      return await invoiceResponse.json();
-    }
-  }
-  return null;
+export function getCurrencySymbol(currencyCode: string): string {
+  const currencyMap: Record<string, string> = {
+    'usd': '$',
+    'eur': '€',
+    'gbp': '£',
+    'jpy': '¥',
+    'aud': 'A$',
+    'cad': 'C$',
+    'chf': 'CHF',
+    'cny': '¥',
+    'hkd': 'HK$',
+    'nzd': 'NZ$',
+    'sek': 'kr',
+    'krw': '₩',
+    'sgd': 'S$',
+    'nok': 'kr',
+    'mxn': '$',
+    'inr': '₹',
+    'rub': '₽',
+    'zar': 'R',
+    'try': '₺',
+    'brl': 'R$',
+    'twd': 'NT$',
+    'dkk': 'kr',
+    'pln': 'zł',
+    'thb': '฿',
+    'idr': 'Rp',
+    'huf': 'Ft',
+    'czk': 'Kč',
+    'ils': '₪',
+    'clp': '$',
+    'php': '₱',
+    'aed': 'د.إ',
+    'cop': '$',
+    'sar': '﷼',
+    'myr': 'RM',
+    'ron': 'lei'
+  };
+  return currencyMap[currencyCode.toLowerCase()] || currencyCode.toUpperCase();
 }

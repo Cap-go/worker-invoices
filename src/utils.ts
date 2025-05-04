@@ -362,12 +362,24 @@ function getCopyExampleScript(cfWorkerDomain: string) {
 // Helper for form submission script
 function getFormSubmitScript() {
   return `<script>
-    async function sendFormRequest(formId, endpoint, successMessage = 'Request successful', failureMessage = 'Request failed') {
+    async function sendFormRequest(formId, endpoint, successMessage = 'Request successful', failureMessage = 'Request failed', method = 'GET') {
       const form = document.getElementById(formId);
+      let options = {
+        method: method,
+      };
+      if (method === 'POST') {
+        const url = new URL(endpoint, window.location.origin);
+        const params = url.searchParams;
+        const data = Object.fromEntries(params.entries());
+        options = {
+          method: method,
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(data)
+        };
+        endpoint = url.pathname;
+      }
       try {
-        const response = await fetch(endpoint, {
-          method: 'GET',
-        });
+        const response = await fetch(endpoint, options);
         const result = await response.json();
         if (response.ok) {
           alert(successMessage);
