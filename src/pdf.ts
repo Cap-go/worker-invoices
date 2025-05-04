@@ -422,18 +422,3 @@ function formatDate(date: Date): string {
   const options: Intl.DateTimeFormatOptions = { month: "long", day: "numeric", year: "numeric" }
   return date.toLocaleDateString("en-US", options)
 }
-
-/**
- * Creates a PDF invoice specifically for subscriptions.
- * This is a wrapper around createInvoicePDF with isInvoice set to true.
- */
-export async function createSubscriptionInvoicePDF(
-  c: any,
-  companyInfo: CompanyInfo,
-  customerData: CustomerData,
-  invoiceNumber: string,
-  chargeData: ChargeData,
-  subscriptionInfo: SubscriptionInfo,
-): Promise<Buffer> {
-  return createInvoicePDF(c, companyInfo, customerData, invoiceNumber, chargeData, subscriptionInfo, undefined, true)
-}

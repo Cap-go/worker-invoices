@@ -533,6 +533,7 @@ export async function sendInvoice(c: any, customerId: string, chargeId: string) 
     chargeData,
     subscriptionInfo,
     receiptNumber,
+    true,
   )
 
   // Send email using nodemailer
