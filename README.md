@@ -14,10 +14,17 @@ A homepage is available at the root URL (`/`) of your deployed worker, which hel
 
 This project has been developed to help businesses avoid the additional costs associated with Stripe's invoicing feature. By using this Cloudflare Worker, you can save on Stripe invoice fees while gaining more flexibility to allow your users to update their Stripe information and receive updated invoices directly through your system.
 
+The project is primarily designed for subscription-based businesses and SaaS (Software as a Service) companies, providing automated invoicing solutions tailored to recurring billing models.
+
+## Technical Details
+
+- **No Database**: This project does not use a database to store information. Instead, invoice numbers are generated dynamically using the Stripe `chargeId` combined with date information to ensure uniqueness.
+- **Minimal Billing Portal**: The billing portal for users displays only essential information to prevent data leakage. It allows users to resend invoices to their registered email address, ensuring that sensitive data is not exposed.
+
 ## Features
 
 - Automatically sends invoices via email upon successful Stripe charges.
-- Generates PDF invoices using jsPDF.
+- Generates PDF invoices using Puppeteer from Cloudflare.
 - Provides a billing history page for customers.
 - Allows manual invoice sending via API endpoints.
 - Checks for mandatory legal information before generating invoices.
