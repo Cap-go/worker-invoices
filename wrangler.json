@@ -22,6 +22,9 @@
     "CF_WORKER_DOMAIN": "invoices.[YOUR COMPANY].app",
     "DEV_MODE": "true"
   },
+  "browser": {
+    "binding": "MYBROWSER"
+  },
   "triggers": {
     "crons": [
       "* * * * *"

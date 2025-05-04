@@ -1,96 +1,105 @@
-import jsPDF from "jspdf"
+import puppeteer from "@cloudflare/puppeteer"
 import type { CompanyInfo, CustomerData, ChargeData, SubscriptionInfo } from "./stripe"
 
 /**
- * Creates a PDF invoice with the provided details in Stripe-like style.
+ * Creates a PDF invoice with the provided details in Hyperping-like style.
+ * @param c - The context object containing environment variables.
  * @param companyInfo - Object containing company details like name, address, email, logo, etc.
  * @param customerData - Object containing customer details like name, email, address.
  * @param invoiceNumber - The unique invoice number.
  * @param chargeData - The Stripe charge object.
  * @param subscriptionInfo - Object containing subscription details if applicable.
+ * @param receiptNumber - Optional receipt number.
+ * @param isInvoice - Whether to generate an invoice (true) or receipt (false).
  * @returns Buffer containing the PDF data.
  */
 export async function createInvoicePDF(
+  c: any,
   companyInfo: CompanyInfo,
   customerData: CustomerData,
   invoiceNumber: string,
-  chargeData: ChargeData, // Using the actual Stripe.Charge type
+  chargeData: ChargeData,
   subscriptionInfo: SubscriptionInfo | null = null,
   receiptNumber?: string,
+  isInvoice = false,
 ): Promise<Buffer> {
-  console.log("Generating PDF using jsPDF")
+  const browser = await puppeteer.launch(c.env.MYBROWSER)
+  console.log(`Generating ${isInvoice ? "invoice" : "receipt"} PDF using Puppeteer`)
 
-  // Generate PDF using jsPDF with Stripe-like styling
-  const doc = new jsPDF({
-    orientation: "p",
-    format: "a4",
-    unit: "pt",
+  // HTML content for the invoice/receipt
+  const htmlContent = generateInvoiceHTML(
+    companyInfo,
+    customerData,
+    invoiceNumber,
+    chargeData,
+    subscriptionInfo,
+    receiptNumber,
+    isInvoice,
+  )
+
+  // Launch a new page
+  const page = await browser.newPage()
+
+  // Set the HTML content
+  await page.setContent(htmlContent, { waitUntil: "domcontentloaded" })
+
+  // Generate PDF
+  const pdfBuffer = await page.pdf({
+    format: "A4",
+    printBackground: true,
+    margin: { top: "40px", right: "40px", bottom: "40px", left: "40px" },
   })
 
-  const pageWidth = doc.internal.pageSize.getWidth()
-  const pageHeight = doc.internal.pageSize.getHeight()
-  const margin = 50
+  await page.close()
 
-  // Helper functions
-  const setFontStyle = (size: number, style = "normal") => {
-    doc.setFont("helvetica", style)
-    doc.setFontSize(size)
+  console.log(`PDF ${isInvoice ? "invoice" : "receipt"} generated successfully with Puppeteer`)
+  return pdfBuffer
+}
+
+/**
+ * Generates HTML content for the invoice or receipt.
+ * @param companyInfo - Company details.
+ * @param customerData - Customer details.
+ * @param invoiceNumber - Invoice number.
+ * @param chargeData - Charge details.
+ * @param subscriptionInfo - Subscription details if applicable.
+ * @param receiptNumber - Receipt number if applicable.
+ * @param isInvoice - Whether it's an invoice or receipt.
+ * @returns HTML string.
+ */
+function generateInvoiceHTML(
+  companyInfo: CompanyInfo,
+  customerData: CustomerData,
+  invoiceNumber: string,
+  chargeData: ChargeData,
+  subscriptionInfo: SubscriptionInfo | null,
+  receiptNumber: string | undefined,
+  isInvoice: boolean,
+): string {
+  // Format currency and amount
+  const currency = chargeData.currency?.toUpperCase() || "USD"
+  const amount = (chargeData.amount / 100).toFixed(2)
+  const formattedAmount = `$${amount}`
+  const formattedAmountWithCurrency = `$${amount} ${currency}`
+
+  // Format dates
+  const dateCreated = new Date(chargeData.created * 1000)
+  const dateIssued = formatDate(dateCreated)
+  const dateDue = isInvoice ? dateIssued : formatDate(dateCreated) // For invoices, due date is same as issue date in the example
+
+  // Format dates for display in the header
+  const shortDateFormat = (date: Date) => {
+    return date.toLocaleDateString("en-US", {
+      month: "long",
+      day: "numeric",
+      year: "numeric",
+    })
   }
+  const headerDueDate = shortDateFormat(dateCreated)
 
-  const drawText = (text: string, x: number, y: number, options: any = {}) => {
-    doc.text(text, x, y, options)
-  }
-
-  const formatDate = (timestamp: number) => {
-    const date = new Date(timestamp * 1000)
-    const options: Intl.DateTimeFormatOptions = { month: "long", day: "numeric", year: "numeric" }
-    return date.toLocaleDateString("en-US", options)
-  }
-
-  // Set default text color to dark gray instead of pure black for better readability
-  doc.setTextColor(51, 51, 51)
-
-  // Add header with receipt/invoice info
-  let currentY = margin
-
-  // Add receipt number and amount at the top
-  const datePaid = formatDate(chargeData.created)
-
-  setFontStyle(10)
-  drawText(`${receiptNumber || invoiceNumber} · ${chargeData.price_string} paid on ${datePaid}`, margin, currentY)
-
-  // Add "Page 1 of 1" on the right
-  drawText("Page 1 of 1", pageWidth - margin, currentY, { align: "right" })
-
-  currentY += 30
-
-  // Add "Receipt" title
-  setFontStyle(24, "bold")
-  drawText("Receipt", margin, currentY)
-  currentY += 40
-
-  // Add invoice details in a two-column layout
-  setFontStyle(10, "bold")
-  drawText("Invoice number", margin, currentY)
-  drawText("Receipt number", margin + 200, currentY)
-  currentY += 20
-
-  setFontStyle(10)
-  drawText(invoiceNumber, margin, currentY)
-  drawText(receiptNumber || invoiceNumber, margin + 200, currentY)
-  currentY += 30
-
-  setFontStyle(10, "bold")
-  drawText("Date paid", margin, currentY)
-  drawText("Payment method", margin + 200, currentY)
-  currentY += 20
-
-  setFontStyle(10)
-  drawText(datePaid, margin, currentY)
-
-  // Get payment method from Stripe charge
-  let paymentMethod = "Card"
-  if (chargeData.payment_method_details) {
+  // Get payment method details
+  let paymentMethod = isInvoice ? "Online payment" : "Card"
+  if (!isInvoice && chargeData.payment_method_details) {
     if (chargeData.payment_method_details.type === "card") {
       const card = chargeData.payment_method_details.card
       paymentMethod = card
@@ -102,187 +111,329 @@ export async function createInvoicePDF(
     }
   }
 
-  drawText(paymentMethod, margin + 200, currentY)
-  currentY += 40
-
-  // Company information
-  setFontStyle(10)
-  if (companyInfo.name) {
-    drawText(companyInfo.name, margin, currentY)
-    currentY += 15
-  }
-
-  if (companyInfo.address) {
-    const addressLines = companyInfo.address.split(", ")
-    for (const line of addressLines) {
-      drawText(line, margin, currentY)
-      currentY += 15
-    }
-  }
-
-  if (companyInfo.email) {
-    drawText(companyInfo.email, margin, currentY)
-    currentY += 15
-  }
-
-  if (companyInfo.vatId) {
-    drawText(`VAT: ${companyInfo.vatId}`, margin, currentY)
-    currentY += 15
-  }
-
-  currentY += 20
-
-  // Bill to section
-  setFontStyle(10, "bold")
-  drawText("Bill to", margin, currentY)
-  currentY += 20
-
-  setFontStyle(10)
-  if (customerData.name) {
-    drawText(customerData.name, margin, currentY)
-    currentY += 15
-  }
-
-  if (customerData.address) {
-    if (customerData.address.line1) {
-      drawText(customerData.address.line1, margin, currentY)
-      currentY += 15
-    }
-
-    if (customerData.address.line2) {
-      drawText(customerData.address.line2, margin, currentY)
-      currentY += 15
-    }
-
-    const cityStateZip = [customerData.address.city, customerData.address.state, customerData.address.postal_code]
-      .filter(Boolean)
-      .join(", ")
-
-    if (cityStateZip) {
-      drawText(cityStateZip, margin, currentY)
-      currentY += 15
-    }
-
-    if (customerData.address.country) {
-      drawText(customerData.address.country, margin, currentY)
-      currentY += 15
-    }
-  }
-
-  if (customerData.email) {
-    drawText(customerData.email, margin, currentY)
-    currentY += 15
-  }
-
-  currentY += 20
-
-  // Payment status
-  setFontStyle(10)
-  drawText(`${chargeData.price_string} paid on ${datePaid}`, margin, currentY)
-  currentY += 30
-
-  // Optional custom message from charge description
-  if (chargeData.description) {
-    drawText(chargeData.description, margin, currentY)
-    currentY += 30
-  }
-
-  // Table header
-  setFontStyle(10, "bold")
-  drawText("Description", margin, currentY)
-  drawText("Qty", pageWidth - margin - 150, currentY)
-  drawText("Unit price", pageWidth - margin - 100, currentY, { align: "right" })
-  drawText("Amount", pageWidth - margin, currentY, { align: "right" })
-
-  currentY += 15
-
-  // Draw a light gray line
-  doc.setDrawColor(230, 230, 230)
-  doc.line(margin, currentY, pageWidth - margin, currentY)
-
-  currentY += 20
-
-  // Table content
-  setFontStyle(10)
-
-  // Description
+  // Get description and subscription period
   let description = chargeData.description || `Charge ${chargeData.id}`
+  let subscriptionPeriod = ""
+
   if (subscriptionInfo) {
     description = subscriptionInfo.planName || description
-  }
 
-  drawText(description, margin, currentY)
+    if (subscriptionInfo.current_period_start && subscriptionInfo.current_period_end) {
+      const startDate = new Date(subscriptionInfo.current_period_start * 1000)
+      const endDate = new Date(subscriptionInfo.current_period_end * 1000)
 
-  // Quantity
-  drawText("1", pageWidth - margin - 150, currentY)
-
-  // Unit price
-  drawText(chargeData.price_string, pageWidth - margin - 100, currentY, { align: "right" })
-
-  // Amount
-  drawText(chargeData.price_string, pageWidth - margin, currentY, { align: "right" })
-
-  currentY += 30
-
-  // Draw a light gray line
-  doc.setDrawColor(230, 230, 230)
-  doc.line(margin, currentY, pageWidth - margin, currentY)
-
-  currentY += 20
-
-  // Totals section
-  setFontStyle(10)
-  drawText("Subtotal", pageWidth - margin - 100, currentY, { align: "right" })
-  drawText(chargeData.price_string, pageWidth - margin, currentY, { align: "right" })
-
-  currentY += 20
-
-  setFontStyle(10, "bold")
-  drawText("Total", pageWidth - margin - 100, currentY, { align: "right" })
-  drawText(chargeData.price_string, pageWidth - margin, currentY, { align: "right" })
-
-  currentY += 20
-
-  setFontStyle(10)
-  drawText("Amount paid", pageWidth - margin - 100, currentY, { align: "right" })
-  drawText(chargeData.price_string, pageWidth - margin, currentY, { align: "right" })
-
-  currentY += 40
-
-  // Add subscription info if available
-  if (subscriptionInfo) {
-    setFontStyle(10)
-    drawText("Price plan:", margin, currentY)
-    currentY += 20
-
-    drawText(`${subscriptionInfo.price_string} / ${subscriptionInfo.interval || "month"}`, margin + 20, currentY)
-    currentY += 30
-
-    if (subscriptionInfo.details) {
-      const lines = subscriptionInfo.details.split("\n")
-      for (const line of lines) {
-        drawText(line, margin + 20, currentY)
-        currentY += 15
+      const formatShortDate = (date: Date) => {
+        return date.toLocaleDateString("en-US", {
+          month: "long",
+          day: "numeric",
+          year: "numeric",
+        })
       }
+
+      subscriptionPeriod = `${formatShortDate(startDate)} – ${formatShortDate(endDate)}`
     }
   }
 
-  // Footer
-  const footerY = pageHeight - margin
-  setFontStyle(8)
-  doc.setTextColor(150, 150, 150)
+  // Get company and customer VAT numbers with country codes
+  const companyVat = companyInfo.vatId ? `VAT ${companyInfo.vatId}` : ""
+  const customerVat = customerData.vatId ? `VAT ${customerData.vatId}` : ""
 
-  // Generate footer text using existing data
-  const footerText = `Invoice generated on ${new Date().toLocaleDateString()} ${new Date().toLocaleTimeString()}`
-  drawText(footerText, pageWidth / 2, footerY - 15, { align: "center" })
+  return `
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+      <meta charset="UTF-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <title>${isInvoice ? "Invoice" : "Receipt"} ${invoiceNumber}</title>
+      <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+        
+        * {
+          box-sizing: border-box;
+          margin: 0;
+          padding: 0;
+        }
+        
+        body {
+          font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+          color: #111827;
+          line-height: 1.5;
+          font-size: 14px;
+          padding: 40px;
+        }
+        
+        .container {
+          width: 100%;
+          max-width: 800px;
+          margin: 0 auto;
+        }
+        
+        .header {
+          display: flex;
+          justify-content: space-between;
+          align-items: flex-start;
+          margin-bottom: 40px;
+        }
+        
+        .header-left h1 {
+          font-size: 32px;
+          font-weight: 700;
+          margin-bottom: 30px;
+        }
+        
+        .header-right {
+          text-align: right;
+        }
+        
+        .logo {
+          max-height: 40px;
+          margin-bottom: 20px;
+        }
+        
+        .invoice-details {
+          margin-bottom: 30px;
+        }
+        
+        .invoice-details div {
+          margin-bottom: 8px;
+        }
+        
+        .company-details {
+          margin-bottom: 30px;
+        }
+        
+        .company-details div {
+          margin-bottom: 4px;
+        }
+        
+        .billing-details {
+          margin-bottom: 30px;
+        }
+        
+        .billing-details div {
+          margin-bottom: 4px;
+        }
+        
+        .columns {
+          display: flex;
+          justify-content: space-between;
+        }
+        
+        .column {
+          flex: 1;
+        }
+        
+        .column-right {
+          text-align: right;
+        }
+        
+        .amount-due {
+          font-size: 20px;
+          font-weight: 600;
+          margin-bottom: 10px;
+        }
+        
+        .pay-online {
+          display: inline-block;
+          color: #6366F1;
+          text-decoration: none;
+          margin-bottom: 30px;
+        }
+        
+        table {
+          width: 100%;
+          border-collapse: collapse;
+          margin-bottom: 30px;
+        }
+        
+        table th {
+          text-align: left;
+          padding: 10px 0;
+          border-bottom: 1px solid #E5E7EB;
+          font-weight: 600;
+        }
+        
+        table th:last-child {
+          text-align: right;
+        }
+        
+        table td {
+          padding: 16px 0;
+          vertical-align: top;
+        }
+        
+        table td:last-child {
+          text-align: right;
+        }
+        
+        .subscription-period {
+          color: #6B7280;
+          font-size: 13px;
+          margin-top: 4px;
+        }
+        
+        .totals {
+          width: 100%;
+          border-top: 1px solid #E5E7EB;
+          padding-top: 16px;
+        }
+        
+        .totals-row {
+          display: flex;
+          justify-content: space-between;
+          margin-bottom: 8px;
+        }
+        
+        .totals-row.total {
+          font-weight: 600;
+        }
+        
+        .totals-row.amount-due {
+          font-weight: 600;
+        }
+        
+        .tax-note {
+          color: #6B7280;
+          margin-bottom: 8px;
+        }
+        
+        .footer {
+          margin-top: 60px;
+          border-top: 1px solid #E5E7EB;
+          padding-top: 16px;
+          display: flex;
+          justify-content: space-between;
+          color: #6B7280;
+          font-size: 12px;
+        }
+      </style>
+    </head>
+    <body>
+      <div class="container">
+        <div class="header">
+          <div class="header-left">
+            <h1>${isInvoice ? "Invoice" : "Receipt"}</h1>
+          </div>
+          <div class="header-right">
+            ${companyInfo.logo ? `<img src="${companyInfo.logo}" alt="${companyInfo.name}" class="logo">` : `<h2>${companyInfo.name}</h2>`}
+          </div>
+        </div>
+        
+        <div class="columns">
+          <div class="column">
+            <div class="invoice-details">
+              <div><strong>Invoice number</strong> ${invoiceNumber}</div>
+              <div><strong>Date of issue</strong> ${dateIssued}</div>
+              <div><strong>Date due</strong> ${dateDue}</div>
+            </div>
+            
+            <div class="company-details">
+              <div><strong>${companyInfo.name}</strong></div>
+              ${
+                companyInfo.address
+                  ? companyInfo.address
+                      .split(", ")
+                      .map((line) => `<div>${line}</div>`)
+                      .join("")
+                  : ""
+              }
+              <div>${companyInfo.email}</div>
+              ${companyVat ? `<div>${companyVat}</div>` : ""}
+            </div>
+          </div>
+          
+          <div class="column">
+            <div class="billing-details">
+              <div><strong>Bill to</strong></div>
+              <div>${customerData.name || "Customer"}</div>
+              ${customerData.address?.line1 ? `<div>${customerData.address.line1}</div>` : ""}
+              ${customerData.address?.line2 ? `<div>${customerData.address.line2}</div>` : ""}
+              ${customerData.address?.city ? `<div>${customerData.address.postal_code || ""} ${customerData.address.city}</div>` : ""}
+              ${customerData.address?.country ? `<div>${customerData.address.country}</div>` : ""}
+              <div>${customerData.email}</div>
+              ${customerVat ? `<div>${customerVat}</div>` : ""}
+            </div>
+          </div>
+        </div>
+        
+        <div class="amount-due">
+          ${formattedAmountWithCurrency} ${isInvoice ? `due ${headerDueDate}` : `paid ${headerDueDate}`}
+        </div>
+        
+        ${isInvoice ? `<a href="#" class="pay-online">Pay online</a>` : ""}
+        
+        <table>
+          <thead>
+            <tr>
+              <th>Description</th>
+              <th>Qty</th>
+              <th>Unit price</th>
+              <th>Amount</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>
+                ${description}
+                ${subscriptionPeriod ? `<div class="subscription-period">${subscriptionPeriod}</div>` : ""}
+              </td>
+              <td>1</td>
+              <td>${formattedAmount}</td>
+              <td>${formattedAmount}</td>
+            </tr>
+          </tbody>
+        </table>
+        
+        <div class="totals">
+          <div class="totals-row">
+            <div>Subtotal</div>
+            <div>${formattedAmount}</div>
+          </div>
+          
+          ${customerVat ? `<div class="tax-note">Tax to be paid on reverse charge basis</div>` : ""}
+          
+          <div class="totals-row total">
+            <div>Total</div>
+            <div>${formattedAmount}</div>
+          </div>
+          
+          <div class="totals-row amount-due">
+            <div>${isInvoice ? "Amount due" : "Amount paid"}</div>
+            <div>${formattedAmountWithCurrency}</div>
+          </div>
+        </div>
+        
+        <div class="footer">
+          <div>${invoiceNumber} · ${formattedAmountWithCurrency} ${isInvoice ? `due ${headerDueDate}` : `paid ${headerDueDate}`}</div>
+          <div>Page 1 of 1</div>
+        </div>
+      </div>
+    </body>
+    </html>
+  `
+}
 
-  if (companyInfo.name) {
-    drawText(`© ${new Date().getFullYear()} ${companyInfo.name}. All rights reserved.`, pageWidth / 2, footerY, {
-      align: "center",
-    })
-  }
+/**
+ * Formats a date object into a readable date string.
+ * @param date - Date object.
+ * @returns Formatted date string.
+ */
+function formatDate(date: Date): string {
+  const options: Intl.DateTimeFormatOptions = { month: "long", day: "numeric", year: "numeric" }
+  return date.toLocaleDateString("en-US", options)
+}
 
-  const pdfBuffer = Buffer.from(doc.output("arraybuffer"))
-  console.log("PDF generated successfully with jsPDF")
-  return pdfBuffer
+/**
+ * Creates a PDF invoice specifically for subscriptions.
+ * This is a wrapper around createInvoicePDF with isInvoice set to true.
+ */
+export async function createSubscriptionInvoicePDF(
+  c: any,
+  companyInfo: CompanyInfo,
+  customerData: CustomerData,
+  invoiceNumber: string,
+  chargeData: ChargeData,
+  subscriptionInfo: SubscriptionInfo,
+): Promise<Buffer> {
+  return createInvoicePDF(c, companyInfo, customerData, invoiceNumber, chargeData, subscriptionInfo, undefined, true)
 }

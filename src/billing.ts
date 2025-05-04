@@ -49,7 +49,12 @@ export const billing = async (c: any) => {
             <div class="user-name">${name}</div>
             ${email ? `<div class="company-meta">${maskEmail(email)}</div>` : ''}
             ${subscriptionInfo ? 
-              `<div class="subscription-info">${subscriptionInfo.planName} • ${subscriptionInfo.interval.charAt(0).toUpperCase() + subscriptionInfo.interval.slice(1)}ly • ${subscriptionInfo.price_string}/${subscriptionInfo.interval}</div>` : ''
+              `<div class="subscription-info">${subscriptionInfo.planName} • ${subscriptionInfo.interval.charAt(0).toUpperCase() + subscriptionInfo.interval.slice(1)}ly • ${subscriptionInfo.price_string}/${subscriptionInfo.interval}</div>` : 
+              ''
+            }
+            ${subscriptionInfo && subscriptionInfo.current_period_start && subscriptionInfo.current_period_end ? 
+              `<div class="company-meta">Subscription Period: ${formatDateInWords(new Date(subscriptionInfo.current_period_start * 1000))} - ${formatDateInWords(new Date(subscriptionInfo.current_period_end * 1000))}</div>` : 
+              ''
             }
           </div>
           <form id="billingLinkForm" onsubmit="event.preventDefault(); sendFormRequest('billingLinkForm', '/api/request-billing-link?customerId=${customerId}', 'Billing link sent to your email', 'Failed to send billing link');">
@@ -69,7 +74,7 @@ export const billing = async (c: any) => {
           <tbody>
             ${charges.length > 0 ? charges.map((charge) => `
               <tr>
-                <td>${charge.created ? new Date(charge.created * 1000).toLocaleDateString() : 'N/A'}</td>
+                <td>${charge.created ? formatDateInWords(new Date(charge.created * 1000)) : 'N/A'}</td>
                 <td class="amount">${charge.price_string}</td>
                 <td><span class="status-badge status-paid">Paid</span></td>
                 <td>
@@ -232,3 +237,12 @@ export const requestBillingLink = async (c: any) => {
 };
 
 // Using maskEmail utility function from utils.ts instead of defining it here
+
+// Add function to format date in words
+function formatDateInWords(date: Date): string {
+  const months = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+  const day = date.getDate();
+  const month = months[date.getMonth()];
+  const year = date.getFullYear();
+  return `${month} ${day}, ${year}`;
+}
