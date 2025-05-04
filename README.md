@@ -86,3 +86,22 @@ The API will fetch Stripe data to brand the email and PDF with the logo and bran
 To fetch legally required company information (such as name, address, email, VAT ID, and branding) from Stripe, an **unrestricted API key** is necessary. Restricted keys lack the permissions to access this data, which is critical for generating compliant invoices.
 
 **Note:** While unrestricted keys have broader access, this application is secure for use with them. The code is open and readable, and as the user, you own and control the deployment of this worker. You can verify exactly what the code does with the key.
+
+## Visual Overview
+
+Below are some visual representations of the key features of this platform:
+
+- **Homepage**: Check the configuration status of your Cloudflare Worker, including environment variables and webhook setup. 
+  ![Homepage](doc/homepage_api.png)
+
+- **Billing History Page**: Customers can view past charges and download or resend invoices from this page. 
+  ![Billing History](doc/billing_history_page.png)
+
+- **Email Preview**: A preview of the invoice email sent to customers. 
+  ![Email Preview](doc/email_preview.png)
+
+- **Email**: The full invoice email with a PDF attachment sent to customers upon successful charge. 
+  ![Email](doc/email.png)
+
+- **Invoice PDF**: The generated PDF invoice attached to the email. 
+  ![Invoice](doc/invoice.png)

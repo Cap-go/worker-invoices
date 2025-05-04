@@ -1,5 +1,5 @@
 import { renderHtml } from './utils';
-import { getWebhookEndpoints, getAccountInfo } from './stripe';
+import { getWebhookEndpoints, getCompanyInfo, CompanyInfo } from './stripe';
 
 export const home = async (c: any) => {
     try {
@@ -28,32 +28,30 @@ export const home = async (c: any) => {
       }
       console.log('webhookcheck done');
   
-      // Fetch company info for legal requirements
-      let companyInfo = {
+      let companyInfo: CompanyInfo = {
         name: 'Not Set',
         description: 'Not Set',
         address: 'Not Set',
         email: 'Not Set',
-        vat: 'Not Set',
-        vatId: '',
+        vatId: 'Not Set',
         brandColor: '#000000',
         secondaryColor: '#ffffff',
         logo: ''
-      };
+      }
+      // Fetch company info for legal requirements
       try {
-        const accountData = await getAccountInfo(c);
-        console.log('accountData', accountData);
-        companyInfo = {
-          name: accountData.business_profile?.name || 'Not Set',
-          description: accountData.business_profile?.support_phone || 'Not Set',
-          address: accountData.settings?.branding?.address || 'Not Set',
-          email: accountData.email || 'Not Set',
-          vat: accountData.business_profile?.tax_id || 'Not Set',
-          vatId: accountData.business_profile?.tax_id ? `VAT: ${accountData.business_profile.tax_id}` : '',
-          brandColor: accountData.settings?.branding?.primary_color || '#000000',
-          secondaryColor: accountData.settings?.branding?.secondary_color || '#ffffff',
-          logo: accountData.settings?.branding?.logo || ''
-        };
+        companyInfo = await getCompanyInfo(c)
+        const companyRawInfo = await getCompanyInfo(c)
+        console.log('companyRawInfo', companyRawInfo);
+        companyInfo.name = companyRawInfo.name ?? 'Not Set'
+        companyInfo.description = companyRawInfo.description ?? 'Not Set'
+        companyInfo.address = companyRawInfo.address ?? 'Not Set'
+        companyInfo.email = companyRawInfo.email ?? 'Not Set'
+        companyInfo.vatId = companyRawInfo.vatId ?? 'Not Set'
+        companyInfo.brandColor = companyRawInfo.brandColor ?? '#000000'
+        companyInfo.secondaryColor = companyRawInfo.secondaryColor ?? '#ffffff'
+        companyInfo.logo = companyRawInfo.logo ?? ''
+        console.log('companyInfo', companyInfo);
       } catch (error) {
         console.error('Error fetching company info:', error);
       }
@@ -106,7 +104,7 @@ export const home = async (c: any) => {
               <ul class="grid grid-cols-1 md:grid-cols-2 gap-2">
                 <li class="flex items-center">
                   <span>Company Name:</span>
-                  <span class="ml-2 status-badge ${companyInfo.name === 'Not Set' ? 'status-missing' : 'status-set'}">
+                  <span class="ml-2 status-badge ${companyInfo?.name === 'Not Set' ? 'status-missing' : 'status-set'}">
                     ${companyInfo.name === 'Not Set' ? 'Not Set' : 'Set'}
                   </span>
                   ${companyInfo.name === 'Not Set' ? 
@@ -130,10 +128,10 @@ export const home = async (c: any) => {
                 </li>
                 <li class="flex items-center">
                   <span>VAT ID:</span>
-                  <span class="ml-2 status-badge ${companyInfo.vat === 'Not Set' ? 'status-missing' : 'status-set'}">
-                    ${companyInfo.vat === 'Not Set' ? 'Not Set' : 'Set'}
+                  <span class="ml-2 status-badge ${companyInfo.vatId === 'Not Set' ? 'status-missing' : 'status-set'}">
+                    ${companyInfo.vatId === 'Not Set' ? 'Not Set' : 'Set'}
                   </span>
-                  ${companyInfo.vat === 'Not Set' ? 
+                  ${companyInfo.vatId === 'Not Set' ? 
                     '<a href="https://dashboard.stripe.com/settings/tax" target="_blank" class="ml-2 action-link">Set in Stripe</a>' : ''}
                 </li>
                 <li class="flex items-center">
