@@ -510,6 +510,10 @@ export async function sendInvoice(c: any, customerId: string, chargeId: string) 
               <div style="margin-top: 30px; color: #666; font-size: 14px;">
                 Questions? Contact us at <a href="mailto:${companyEmail}" style="color: #635bff; text-decoration: none;">${companyEmail}</a>
               </div>
+
+              <div style="margin-top: 20px; font-size: 14px;">
+                <a href="https://${c.env.CF_WORKER_DOMAIN}/billing/${customerId}" style="color: #635bff; text-decoration: none;">View all past invoices</a>
+              </div>
             </div>
           </div>
         </div>
