@@ -9,7 +9,6 @@ import type { CompanyInfo, CustomerData, ChargeData, SubscriptionInfo } from "./
  * @param invoiceNumber - The unique invoice number.
  * @param chargeData - The Stripe charge object.
  * @param subscriptionInfo - Object containing subscription details if applicable.
- * @param receiptNumber - Optional receipt number.
  * @param isInvoice - Whether to generate an invoice (true) or receipt (false).
  * @returns Buffer containing the PDF data.
  */
@@ -20,11 +19,9 @@ export async function createInvoicePDF(
   invoiceNumber: string,
   chargeData: ChargeData,
   subscriptionInfo: SubscriptionInfo | null = null,
-  receiptNumber?: string,
-  isInvoice = false,
 ): Promise<Buffer> {
   const browser = await puppeteer.launch(c.env.MYBROWSER)
-  console.log(`Generating ${isInvoice ? "invoice" : "receipt"} PDF using Puppeteer`)
+  console.log(`Generating invoice PDF using Puppeteer`)
 
   // HTML content for the invoice/receipt
   const htmlContent = generateInvoiceHTML(
@@ -33,8 +30,6 @@ export async function createInvoicePDF(
     invoiceNumber,
     chargeData,
     subscriptionInfo,
-    receiptNumber,
-    isInvoice,
   )
 
   // Launch a new page
@@ -52,19 +47,17 @@ export async function createInvoicePDF(
 
   await page.close()
 
-  console.log(`PDF ${isInvoice ? "invoice" : "receipt"} generated successfully with Puppeteer`)
+  console.log(`PDF invoice generated successfully with Puppeteer`)
   return pdfBuffer
 }
 
 /**
- * Generates HTML content for the invoice or receipt.
+ * Generates HTML content for the invoice
  * @param companyInfo - Company details.
  * @param customerData - Customer details.
  * @param invoiceNumber - Invoice number.
  * @param chargeData - Charge details.
  * @param subscriptionInfo - Subscription details if applicable.
- * @param receiptNumber - Receipt number if applicable.
- * @param isInvoice - Whether it's an invoice or receipt.
  * @returns HTML string.
  */
 function generateInvoiceHTML(
@@ -73,8 +66,6 @@ function generateInvoiceHTML(
   invoiceNumber: string,
   chargeData: ChargeData,
   subscriptionInfo: SubscriptionInfo | null,
-  receiptNumber: string | undefined,
-  isInvoice: boolean,
 ): string {
   // Format currency and amount
   const currency = chargeData.currency?.toUpperCase() || "USD"
@@ -85,7 +76,7 @@ function generateInvoiceHTML(
   // Format dates
   const dateCreated = new Date(chargeData.created * 1000)
   const dateIssued = formatDate(dateCreated)
-  const dateDue = isInvoice ? dateIssued : formatDate(dateCreated) // For invoices, due date is same as issue date in the example
+  const dateDue = formatDate(dateCreated) // For invoices, due date is same as issue date in the example
 
   // Format dates for display in the header
   const shortDateFormat = (date: Date) => {
@@ -98,8 +89,8 @@ function generateInvoiceHTML(
   const headerDueDate = shortDateFormat(dateCreated)
 
   // Get payment method details
-  let paymentMethod = isInvoice ? "Online payment" : "Card"
-  if (!isInvoice && chargeData.payment_method_details) {
+  let paymentMethod = "Card"
+  if (chargeData.payment_method_details) {
     if (chargeData.payment_method_details.type === "card") {
       const card = chargeData.payment_method_details.card
       paymentMethod = card
@@ -144,7 +135,7 @@ function generateInvoiceHTML(
     <head>
       <meta charset="UTF-8">
       <meta name="viewport" content="width=device-width, initial-scale=1.0">
-      <title>${isInvoice ? "Invoice" : "Receipt"} ${invoiceNumber}</title>
+      <title>Invoice ${invoiceNumber}</title>
       <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
         
@@ -312,7 +303,7 @@ function generateInvoiceHTML(
       <div class="container">
         <div class="header">
           <div class="header-left">
-            <h1>${isInvoice ? "Invoice" : "Receipt"}</h1>
+            <h1>Invoice</h1>
           </div>
           <div class="header-right">
             ${companyInfo.logo ? `<img src="${companyInfo.logo}" alt="${companyInfo.name}" class="logo">` : `<h2>${companyInfo.name}</h2>`}
@@ -357,10 +348,8 @@ function generateInvoiceHTML(
         </div>
         
         <div class="amount-due">
-          ${formattedAmountWithCurrency} ${isInvoice ? `due ${headerDueDate}` : `paid ${headerDueDate}`}
+          ${formattedAmountWithCurrency} paid ${headerDueDate}
         </div>
-        
-        ${isInvoice ? `<a href="#" class="pay-online">Pay online</a>` : ""}
         
         <table>
           <thead>
@@ -398,13 +387,13 @@ function generateInvoiceHTML(
           </div>
           
           <div class="totals-row amount-due">
-            <div>${isInvoice ? "Amount due" : "Amount paid"}</div>
+            <div>Amount paid</div>
             <div>${formattedAmountWithCurrency}</div>
           </div>
         </div>
         
         <div class="footer">
-          <div>${invoiceNumber} · ${formattedAmountWithCurrency} ${isInvoice ? `due ${headerDueDate}` : `paid ${headerDueDate}`}</div>
+          <div>${invoiceNumber} · ${formattedAmountWithCurrency} paid ${headerDueDate}</div>
           <div>Page 1 of 1</div>
         </div>
       </div>

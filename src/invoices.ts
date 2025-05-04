@@ -57,8 +57,6 @@ export async function sendInvoice(c: any, customerId: string, chargeId: string) 
     hash = (hash * 31 + customerId.charCodeAt(i)) % 100000
   }
   const invoiceNumber = `${datePart}${hash.toString().padStart(5, "0")}`
-  // Generate a receipt number (different format from invoice number)
-  const receiptNumber = `${Math.floor(1000 + Math.random() * 9000)}-${Math.floor(1000 + Math.random() * 9000)}`
 
   // Check for mandatory legal fields for invoice
   const isDevMode = c.env.DEV_MODE === "true"
@@ -313,10 +311,10 @@ export async function sendInvoice(c: any, customerId: string, chargeId: string) 
           .content {
             padding: 20px;
           }
-          .receipt-header {
+          .invoice-header {
             margin-bottom: 20px;
           }
-          .receipt-title {
+          .invoice-title {
             font-size: 16px;
             color: #666;
             font-weight: normal;
@@ -366,40 +364,40 @@ export async function sendInvoice(c: any, customerId: string, chargeId: string) 
             text-align: right;
             font-weight: 500;
           }
-          .receipt-details {
+          .invoice-details {
             margin-top: 30px;
           }
-          .receipt-item {
+          .invoice-item {
             display: flex;
             justify-content: space-between;
             margin-bottom: 10px;
           }
-          .receipt-item-description {
+          .invoice-item-description {
             flex: 1;
           }
-          .receipt-item-qty {
+          .invoice-item-qty {
             width: 50px;
             text-align: center;
           }
-          .receipt-item-amount {
+          .invoice-item-amount {
             width: 100px;
             text-align: right;
             font-weight: 500;
           }
-          .receipt-total {
+          .invoice-total {
             margin-top: 20px;
             border-top: 1px solid #e6e6e6;
             padding-top: 20px;
           }
-          .receipt-total-row {
+          .invoice-total-row {
             display: flex;
             justify-content: space-between;
             margin-bottom: 10px;
           }
-          .receipt-total-label {
+          .invoice-total-label {
             color: #666;
           }
-          .receipt-total-amount {
+          .invoice-total-amount {
             font-weight: 500;
           }
           .footer {
@@ -443,12 +441,12 @@ export async function sendInvoice(c: any, customerId: string, chargeId: string) 
             }
           </div>
           
-          <!-- Main Receipt Container -->
+          <!-- Main invoice Container -->
           <div class="container">
             <div class="content">
-              <!-- Receipt Header -->
-              <div class="receipt-header">
-                <h2 class="receipt-title">Invoice from ${companyName}</h2>
+              <!-- invoice Header -->
+              <div class="invoice-header">
+                <h2 class="invoice-title">Invoice from ${companyName}</h2>
                 <h1 class="amount">${formattedAmount}</h1>
                 <p class="date">Paid ${chargeDate}</p>
               </div>
@@ -457,10 +455,6 @@ export async function sendInvoice(c: any, customerId: string, chargeId: string) 
               
               <!-- Invoice Information -->
               <table class="info-table">
-                <tr>
-                  <td>Invoice number</td>
-                  <td>${receiptNumber}</td>
-                </tr>
                 <tr>
                   <td>Invoice number</td>
                   <td>${invoiceNumber}</td>
@@ -474,17 +468,17 @@ export async function sendInvoice(c: any, customerId: string, chargeId: string) 
                 </tr>
               </table>
               
-              <!-- Receipt Details -->
-              <div class="receipt-details">
+              <!-- invoice Details -->
+              <div class="invoice-details">
                 ${billingPeriod ? `<h3 style="margin-top: 0; color: #666; font-weight: normal; font-size: 14px;">${billingPeriod}</h3>` : ""}
                 
                 <!-- Item Details -->
-                <div class="receipt-item">
-                  <div class="receipt-item-description">
+                <div class="invoice-item">
+                  <div class="invoice-item-description">
                     ${subscriptionInfo ? subscriptionInfo.planName : chargeData.description || "Charge"}
                   </div>
-                  <div class="receipt-item-qty">1</div>
-                  <div class="receipt-item-amount">${formattedAmount}</div>
+                  <div class="invoice-item-qty">1</div>
+                  <div class="invoice-item-amount">${formattedAmount}</div>
                 </div>
                 
                 ${
@@ -494,20 +488,20 @@ export async function sendInvoice(c: any, customerId: string, chargeId: string) 
                 }
                 
                 <!-- Totals -->
-                <div class="receipt-total">
-                  <div class="receipt-total-row">
-                    <div class="receipt-total-label">Subtotal</div>
-                    <div class="receipt-total-amount">${formattedAmount}</div>
+                <div class="invoice-total">
+                  <div class="invoice-total-row">
+                    <div class="invoice-total-label">Subtotal</div>
+                    <div class="invoice-total-amount">${formattedAmount}</div>
                   </div>
                   
-                  <div class="receipt-total-row">
-                    <div class="receipt-total-label">Total</div>
-                    <div class="receipt-total-amount">${formattedAmount}</div>
+                  <div class="invoice-total-row">
+                    <div class="invoice-total-label">Total</div>
+                    <div class="invoice-total-amount">${formattedAmount}</div>
                   </div>
                   
-                  <div class="receipt-total-row">
-                    <div class="receipt-total-label">Amount paid</div>
-                    <div class="receipt-total-amount">${formattedAmount}</div>
+                  <div class="invoice-total-row">
+                    <div class="invoice-total-label">Amount paid</div>
+                    <div class="invoice-total-amount">${formattedAmount}</div>
                   </div>
                 </div>
               </div>
@@ -532,8 +526,6 @@ export async function sendInvoice(c: any, customerId: string, chargeId: string) 
     invoiceNumber,
     chargeData,
     subscriptionInfo,
-    receiptNumber,
-    true,
   )
 
   // Send email using nodemailer
@@ -548,7 +540,7 @@ export async function sendInvoice(c: any, customerId: string, chargeId: string) 
 
   console.log(`Email sent to ${recipientEmail} with invoice #${invoiceNumber}`)
 
-  return c.json({ message: "Invoice sent successfully", invoiceNumber, receiptNumber })
+  return c.json({ message: "Invoice sent successfully", invoiceNumber })
 }
 
 // Add function to format date in words
