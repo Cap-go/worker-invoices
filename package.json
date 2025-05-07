@@ -12,7 +12,7 @@
     "@cloudflare/puppeteer": "^1.0.2",
     "hono": "^4.7.7",
     "jspdf": "^3.0.1",
-    "resend": "^3.5.0",
+    "resend": "^4.0.0",
     "stripe": "^18.1.0"
   },
   "devDependencies": {
